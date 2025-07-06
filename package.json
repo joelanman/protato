@@ -12,7 +12,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "chokidar": "^3.6.0",
     "commander": "^14.0.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "nunjucks": "^3.2.4"
   }
 }
