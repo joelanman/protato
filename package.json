@@ -1,0 +1,18 @@
+{
+  "bin": {
+    "protato": "./bin/cli.js"
+  },
+  "name": "protato",
+  "version": "0.1.0",
+  "description": "Prototype websites",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^14.0.0",
+    "express": "^5.1.0"
+  }
+}
