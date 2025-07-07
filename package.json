@@ -1,21 +1,25 @@
 {
-  "bin": {
-    "protato": "./bin/cli.js"
-  },
-  "name": "protato",
-  "version": "0.1.0",
-  "description": "Prototype websites",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "chokidar": "^3.6.0",
-    "commander": "^14.0.0",
-    "express": "^5.1.0",
-    "nunjucks": "^3.2.4",
-    "sass": "^1.89.2"
-  }
+	"bin": {
+		"protato": "./bin/cli.js"
+	},
+	"name": "protato",
+	"version": "0.1.0",
+	"description": "Prototype websites",
+	"main": "index.js",
+	"scripts": {
+		"lint": "npx @biomejs/biome check",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"chokidar": "^3.6.0",
+		"commander": "^14.0.0",
+		"express": "^5.1.0",
+		"nunjucks": "^3.2.4",
+		"sass": "^1.89.2"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.0.6"
+	}
 }
