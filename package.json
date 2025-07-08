@@ -8,6 +8,7 @@
 	"main": "index.js",
 	"scripts": {
 		"lint": "npx @biomejs/biome check",
+		"lint:fix": "npx @biomejs/biome check --write",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"author": "",
