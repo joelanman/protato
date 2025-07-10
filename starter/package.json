@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "dev": "protato dev"
+  },
+  "dependencies": {
+    "@govuk-prototype-kit/common-templates": "2.0.1",
+    "govuk-frontend": "^5.11.0",
+    "protato": "file:../"
+  }
+}
