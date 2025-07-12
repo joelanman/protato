@@ -11,7 +11,8 @@
 		"dev": "cd starter && npm run dev",
 		"lint": "npx @biomejs/biome check",
 		"lint:fix": "npx @biomejs/biome check --write",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "npm run test:unit && npm run lint",
+		"test:unit": "npx vitest run"
 	},
 	"files": [
 		"bin",
@@ -30,6 +31,8 @@
 		"sass": "^1.89.2"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.0.6"
+		"@biomejs/biome": "2.0.6",
+		"supertest": "7.1.3",
+		"vitest": "3.2.4"
 	}
 }
