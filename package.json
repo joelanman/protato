@@ -7,6 +7,7 @@
 	"description": "Prototype websites",
 	"main": "index.js",
 	"scripts": {
+		"dev": "cd starter && npm run dev",
 		"lint": "npx @biomejs/biome check",
 		"lint:fix": "npx @biomejs/biome check --write",
 		"test": "echo \"Error: no test specified\" && exit 1"
