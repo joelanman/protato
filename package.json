@@ -6,6 +6,7 @@
 	"version": "0.1.0",
 	"description": "Prototype websites",
 	"main": "index.js",
+	"type": "module",
 	"scripts": {
 		"dev": "cd starter && npm run dev",
 		"lint": "npx @biomejs/biome check",

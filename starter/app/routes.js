@@ -3,7 +3,8 @@
 // https://prototype-kit.service.gov.uk/docs/create-routes
 //
 
-const protato = require('protato')
+import protato from 'protato'
+
 const router = protato.requests.setupRouter()
 
 // Add your routes here

@@ -1,4 +1,4 @@
-const express = require('express')
+import express from 'express'
 
 let app = null
 
@@ -14,7 +14,7 @@ const requests = {
 	}
 }
 
-module.exports = {
+export default {
 	init,
 	requests
 }
