@@ -6,6 +6,7 @@
 		"useIgnoreFile": true
 	},
 	"files": {
+		"includes": ["**", "!starter/app/routes.js"],
 		"ignoreUnknown": true
 	},
 	"formatter": {

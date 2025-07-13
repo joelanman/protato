@@ -8,6 +8,3 @@ import protato from 'protato'
 const router = protato.requests.setupRouter()
 
 // Add your routes here
-router.get('/', (req, res) => {
-	res.render('index')
-})
