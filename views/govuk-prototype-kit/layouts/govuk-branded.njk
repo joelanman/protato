@@ -52,7 +52,13 @@
 
 {% block bodyEnd %}
   {% block scripts %}
-    {# TO DO scripts #}
+    {% for script in protato.scripts %}
+      {% if script.type|length %}
+        <script type="{{ script.type }}" src="{{ script.src }}"></script>
+      {% else %}
+        <script src="{{ script.src }}"></script>
+      {% endif %}
+    {% endfor %}
     {% block pageScripts %}{% endblock %}
   {% endblock %}
 {% endblock %}
