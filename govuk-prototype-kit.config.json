@@ -1,0 +1,9 @@
+{
+	"meta": {
+		"description": "Quickly make interactive, accessible and realistic prototypes."
+	},
+	"scripts": [
+		"/assets/javascripts/kit.js",
+		"/assets/javascripts/auto-store-data.js"
+	]
+}
