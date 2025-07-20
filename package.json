@@ -12,7 +12,8 @@
 		"lint": "npx @biomejs/biome check",
 		"lint:fix": "npx @biomejs/biome check --write",
 		"test": "npm run test:unit && npm run lint",
-		"test:unit": "npx vitest run"
+		"test:unit": "npx vitest run",
+		"test:coverage": "npx vitest run --coverage"
 	},
 	"files": [
 		"bin",
