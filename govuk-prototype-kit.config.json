@@ -2,9 +2,7 @@
 	"meta": {
 		"description": "Quickly make interactive, accessible and realistic prototypes."
 	},
-	"sass": [
-		"/plugin/assets/sass/legacy-patterns.scss"
-	],
+	"sass": ["/plugin/assets/sass/legacy-patterns.scss"],
 	"scripts": [
 		"/plugin/assets/javascripts/kit.js",
 		"/plugin/assets/javascripts/auto-store-data.js"
@@ -12,8 +10,6 @@
 	"importNunjucksMacrosInto": [
 		"/plugin/views/govuk-prototype-kit/layouts/govuk-branded.njk"
 	],
-	"nunjucksFilters": "/plugin/filters.js",
-	"nunjucksPaths": [
-		"/plugin/views"
-	]
+	"nunjucksFilters": ["/plugin/filters.js"],
+	"nunjucksPaths": ["/plugin/views"]
 }

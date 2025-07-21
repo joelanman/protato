@@ -1,9 +1,11 @@
 import express from 'express'
 
 let app = null
+let nunjucksEnv = null
 
-const init = (appInstance) => {
+const init = (appInstance, nunjucksEnvInstance) => {
 	app = appInstance
+	nunjucksEnv = nunjucksEnvInstance
 }
 
 const requests = {
@@ -14,7 +16,17 @@ const requests = {
 	}
 }
 
+const views = {
+	addFilter: (name, filter) => {
+		nunjucksEnv.addFilter(name, filter)
+	},
+	getFilter: (name) => {
+		return nunjucksEnv.getFilter(name)
+	}
+}
+
 export default {
 	init,
-	requests
+	requests,
+	views
 }
