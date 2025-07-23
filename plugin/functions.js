@@ -10,35 +10,35 @@ const views = protato.views
 // checked status of radios and checkboxes
 
 views.addFunction('checked', function (name, value) {
-    // Check data exists
-    if (this.ctx.data === undefined) {
-        return ''
-    }
+	// Check data exists
+	if (this.ctx.data === undefined) {
+		return ''
+	}
 
-    // Use string keys or object notation to support:
-    // checked("field-name")
-    // checked("['field-name']")
-    // checked("['parent']['field-name']")
+	// Use string keys or object notation to support:
+	// checked("field-name")
+	// checked("['field-name']")
+	// checked("['parent']['field-name']")
 
-    const storedValue = get(this.ctx.data, name)
+	const storedValue = get(this.ctx.data, name)
 
-    // Check the requested data exists
-    if (storedValue === undefined) {
-        return ''
-    }
+	// Check the requested data exists
+	if (storedValue === undefined) {
+		return ''
+	}
 
-    let checked = ''
+	let checked = ''
 
-    // If data is an array, check it exists in the array
-    if (Array.isArray(storedValue)) {
-        if (storedValue.includes(value)) {
-            checked = 'checked'
-        }
-    } else {
-        // The data is just a simple value, check it matches
-        if (storedValue === value) {
-            checked = 'checked'
-        }
-    }
-    return checked
+	// If data is an array, check it exists in the array
+	if (Array.isArray(storedValue)) {
+		if (storedValue.includes(value)) {
+			checked = 'checked'
+		}
+	} else {
+		// The data is just a simple value, check it matches
+		if (storedValue === value) {
+			checked = 'checked'
+		}
+	}
+	return checked
 })
