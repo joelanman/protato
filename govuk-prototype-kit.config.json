@@ -11,5 +11,6 @@
 		"/plugin/views/govuk-prototype-kit/layouts/govuk-branded.njk"
 	],
 	"nunjucksFilters": ["/plugin/filters.js"],
+	"nunjucksFunctions": ["/plugin/functions.js"],
 	"nunjucksPaths": ["/plugin/views"]
 }
