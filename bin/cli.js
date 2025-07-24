@@ -8,6 +8,7 @@ program
 	.description('Start development server')
 	.action(() => {
 		console.log('🥔 Starting protato development server...')
+		console.log()
 		server.start()
 	})
 
