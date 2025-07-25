@@ -8,6 +8,7 @@ program
 	.description('Start development server')
 	.action(() => {
 		console.log('🥔 Starting protato development server')
+		process.env.NODE_ENV = process.env.NODE_ENV || 'development'
 		console.log()
 		server.start()
 	})
