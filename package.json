@@ -9,6 +9,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "cd starter && npm run dev",
+		"start": "cd starter && npm start",
 		"lint": "npx @biomejs/biome check",
 		"lint:fix": "npx @biomejs/biome check --write",
 		"test": "npm run test:unit && npm run lint",
@@ -30,6 +31,7 @@
 		"commander": "^14.0.0",
 		"express": "^5.1.0",
 		"express-session": "1.18.2",
+		"govuk-frontend": "5.11.1",
 		"nunjucks": "^3.2.4",
 		"radash": "12.1.1",
 		"sass": "^1.89.2"
