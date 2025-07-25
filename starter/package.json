@@ -1,6 +1,7 @@
 {
 	"scripts": {
-		"dev": "protato dev"
+		"dev": "protato dev",
+		"start": "protato start"
 	},
 	"type": "module",
 	"dependencies": {
