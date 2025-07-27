@@ -44,7 +44,14 @@ const getApp = () => {
 		response.render('password')
 	})
 
-	app.post('/password', (request, response) => {})
+	app.post('/password', (request, response) => {
+		if (request.body.password === config.password) {
+			request.session.password = config.password
+			response.redirect('/')
+		} else {
+			response.redirect('/manage-prototype/password?error=wrong-password')
+		}
+	})
 
 	return app
 }

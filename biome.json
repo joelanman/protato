@@ -28,7 +28,7 @@
 	"javascript": {
 		"formatter": {
 			"expand": "auto",
-			"lineWidth": 256,
+			"lineWidth": 140,
 			"quoteStyle": "single",
 			"semicolons": "asNeeded",
 			"trailingCommas": "none"
