@@ -41,15 +41,32 @@ const getApp = () => {
 	nunjucks.configure(appViews, nunjucksConfig)
 
 	app.get('/password', (request, response) => {
+		response.locals.error = request.query.error
+		response.locals.returnURL = request.query.returnURL
 		response.render('password')
 	})
+
+	function getSafeReturnURL(returnURL = '/') {
+		if (
+			typeof returnURL === 'string' &&
+			returnURL.startsWith('/') &&
+			!returnURL.startsWith('/manage-prototype/password') &&
+			!returnURL.startsWith('//')
+		) {
+			return returnURL
+		} else {
+			return '/'
+		}
+	}
 
 	app.post('/password', (request, response) => {
 		if (request.body.password === config.password) {
 			request.session.password = config.password
-			response.redirect('/')
+			const returnURL = getSafeReturnURL(request.body.returnURL)
+			response.redirect(returnURL)
 		} else {
-			response.redirect('/manage-prototype/password?error=wrong-password')
+			const returnURL = encodeURIComponent(request.body.returnURL)
+			response.redirect('/manage-prototype/password?error=wrong-password&returnURL=' + returnURL)
 		}
 	})
 
