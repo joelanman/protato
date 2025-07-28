@@ -12,9 +12,10 @@
 		"start": "cd starter && npm start",
 		"lint": "npx @biomejs/biome check",
 		"lint:fix": "npx @biomejs/biome check --write",
-		"test": "npm run test:unit && npm run lint",
-		"test:unit": "npx vitest run",
-		"test:coverage": "npx vitest run --coverage"
+		"test": "npm run test:unit && npm run test:end && npm run lint",
+		"test:unit": "npx vitest run --config vitest.unit.config.js",
+		"test:end": "npx vitest run --config vitest.end.config.js",
+		"test:coverage": "npx vitest run --config vitest.unit.config.js --coverage"
 	},
 	"files": [
 		"bin",
