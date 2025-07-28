@@ -60,8 +60,9 @@ const getApp = () => {
 	}
 
 	app.post('/password', (request, response) => {
-		if (request.body.password === config.password) {
-			request.session.password = config.password
+		const password = request.body.password
+		if (config.passwords.includes(password)) {
+			request.session.password = password
 			const returnURL = getSafeReturnURL(request.body.returnURL)
 			response.redirect(returnURL)
 		} else {
