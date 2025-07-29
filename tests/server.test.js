@@ -52,19 +52,27 @@ describe('Server', () => {
 			env
 		})
 
+		const root = 'http://localhost:' + port
+
 		// wait for server to be ready by reading stdout
 
-		await waitForServerReady(serverProcess, 'Running at http://localhost:' + port)
+		await waitForServerReady(serverProcess, 'Running at ' + root)
 
 		// make requests to server
 
-		const response = await fetch('http://localhost:' + port)
+		const response = await fetch(root)
 
 		expect(response.status).toBe(200)
 
-		const response2 = await fetch('http://localhost:' + port + '/manage-prototype/password')
+		const response2 = await fetch(root + '/manage-prototype/password')
 
 		expect(response2.status).toBe(200)
+
+		const response3 = await fetch(root + '/?page=1', { method: 'POST', redirect: 'manual'})
+
+		expect(response3.status).toBe(302)
+		expect(response3.url).toBe(root + '/?page=1')
+
 	}, 15000) // 15 second timeout for the entire test
 })
 
