@@ -68,11 +68,10 @@ describe('Server', () => {
 
 		expect(response2.status).toBe(200)
 
-		const response3 = await fetch(root + '/?page=1', { method: 'POST', redirect: 'manual'})
+		const response3 = await fetch(root + '/?page=1', { method: 'POST', redirect: 'manual' })
 
 		expect(response3.status).toBe(302)
 		expect(response3.url).toBe(root + '/?page=1')
-
 	}, 15000) // 15 second timeout for the entire test
 })
 
