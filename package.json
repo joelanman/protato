@@ -8,6 +8,7 @@
 	"main": "index.js",
 	"type": "module",
 	"scripts": {
+		"build:manage": "node manage-prototype/build-cli.js",
 		"dev": "cd starter && npm run dev",
 		"start": "cd starter && npm start",
 		"lint": "npx @biomejs/biome check",

@@ -1,4 +1,5 @@
 // manage prototype - app
+import path from 'node:path'
 
 import express from 'express'
 import nunjucks from 'nunjucks'
@@ -17,7 +18,7 @@ const getApp = () => {
 
 	// serve manage prototype assets
 
-	app.use('/public', express.static(paths.managePrototype.public))
+	app.use('/public', express.static(path.join(paths.package, 'manage-prototype', 'public')))
 	app.use('/govuk-frontend', express.static(paths.managePrototype.govukFrontendAssets))
 
 	// set up Nunjucks

@@ -25,11 +25,9 @@ function build() {
 			silenceDeprecations: ['import']
 		})
 
-		const outputPath = path.join(paths.managePrototype.public, 'stylesheets', 'manage-prototype.css')
+		const outputPath = path.join(paths.package, 'manage-prototype', 'public', 'stylesheets', 'manage-prototype.css')
 
-		if (!fs.existsSync(path.dirname(outputPath))) {
-			fs.mkdirSync(path.dirname(outputPath), { recursive: true })
-		}
+		fs.mkdirSync(path.dirname(outputPath), { recursive: true })
 
 		// Write the compiled CSS to file
 		fs.writeFileSync(outputPath, result.css)
