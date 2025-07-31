@@ -2,6 +2,7 @@
 
 import { program } from 'commander'
 import server from '../lib/server.js'
+import { create } from '../scripts/create.js'
 
 program
 	.command('dev')
@@ -21,6 +22,16 @@ program
 		process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 		console.log()
 		server.start()
+	})
+
+program
+	.command('create:local')
+	.description('Create prototype locally')
+	.argument('<path>', 'path to create new prototype in')
+	.action((path) => {
+		console.log('Creating prototype locally...')
+		console.log()
+		create(path)
 	})
 
 program.parse(process.argv)
