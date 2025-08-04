@@ -52,6 +52,11 @@
 
 {% block bodyEnd %}
   {% block scripts %}
+    <script>
+      protato = {
+        livereloadURL: '{{ protato.livereloadURL }}'
+      }
+    </script>
     {% for script in protato.scripts %}
       {% if script.type|length %}
         <script type="{{ script.type }}" src="{{ script.src }}"></script>
