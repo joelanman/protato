@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { stopProcess } from '../lib/stop-process'
 
 const __dirname = import.meta.dirname
+const cliFilePath = path.resolve(__dirname, '../bin/cli.js')
 
 describe.sequential('Server', () => {
 	let serverProcess = null
@@ -33,15 +34,16 @@ describe.sequential('Server', () => {
 	})
 
 	// helper function to start server with given npm script
-	const startServer = async (script) => {
+	const startServer = async (options) => {
 		const env = {
 			...process.env,
+			...options.env,
 			PORT: port
 		}
 
-		const args = script === 'start' ? ['start'] : ['run', 'dev']
+		const commandArgs = [cliFilePath, ...options.args]
 
-		serverProcess = spawn('npm', args, {
+		serverProcess = spawn('node', commandArgs, {
 			cwd: testDir,
 			stdio: 'pipe',
 			env
@@ -54,28 +56,41 @@ describe.sequential('Server', () => {
 		await waitForServerReady(serverProcess, 'Running at ' + root)
 	}
 
-	it('starts a prod server and responds to requests', async () => {
-		console.log('prod test')
-		await startServer('start')
+	describe('production', () => {
+		it('errors if no passwords set', async () => {
+			console.log('prod test')
+			await startServer({ args: ['start'] })
 
-		const response = await fetch(root)
-		expect(response.status).toBe(500)
-	}, 5000)
+			const response = await fetch(root)
+			expect(response.status).toBe(500)
+		}, 5000)
 
-	it('starts a dev server and responds to requests', async () => {
-		console.log('dev test')
-		await startServer('dev')
+		it('redirects to password page', async () => {
+			console.log('prod test')
+			await startServer({ args: ['start'], env: { PASSWORD: 'test' } })
 
-		const response = await fetch(root)
-		expect(response.status).toBe(200)
+			const response = await fetch(root)
+			expect(response.redirected).toBe(true)
+			expect(response.url).toBe(root + '/manage-prototype/password?returnURL=%2F')
+		}, 5000)
+	})
 
-		const response2 = await fetch(root + '/manage-prototype/password')
-		expect(response2.status).toBe(200)
+	describe('development', () => {
+		it('responds to requests', async () => {
+			console.log('dev test')
+			await startServer({ args: ['dev'] })
 
-		const response3 = await fetch(root + '/?page=1', { method: 'POST', redirect: 'manual' })
-		expect(response3.status).toBe(302)
-		expect(response3.url).toBe(root + '/?page=1')
-	}, 5000)
+			const response = await fetch(root)
+			expect(response.status).toBe(200)
+
+			const response2 = await fetch(root + '/manage-prototype/password')
+			expect(response2.status).toBe(200)
+
+			const response3 = await fetch(root + '/?page=1', { method: 'POST' })
+			expect(response3.redirected).toBe(true)
+			expect(response3.url).toBe(root + '/?page=1')
+		}, 5000)
+	})
 })
 
 // helper function to wait for server ready message in stdout
