@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { stopProcess } from '../lib/stop-process'
+import { stopProcess } from '../lib/utils/stop-process.js'
 
 const __dirname = import.meta.dirname
 const cliFilePath = path.resolve(__dirname, '../bin/cli.js')
