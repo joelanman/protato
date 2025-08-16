@@ -5,10 +5,10 @@ import path from 'node:path'
 
 import * as sass from 'sass'
 
-import { getPaths } from '../lib/paths.js'
+import { getManagePaths } from './paths.js'
 
 function build() {
-	const paths = getPaths()
+	const paths = getManagePaths()
 
 	// sass
 
