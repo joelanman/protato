@@ -6,25 +6,27 @@ import nunjucks from 'nunjucks'
 import { getConfig } from '../lib/config.js'
 import { getManagePaths } from './paths.js'
 
-const getApp = () => {
+let internalRenderer
+
+const getManagePrototypeApp = () => {
 	const config = getConfig()
 	const paths = getManagePaths()
 	const app = express()
 
 	// set up locals
 
-	app.locals.assetPath = '/manage-prototype/govuk-frontend'
+	app.locals.assetPath = '/manage-prototype/govuk-frontend/assets'
 
 	// serve manage prototype assets
 
-	app.use('/public', express.static(paths.managePrototype.public))
-	app.use('/govuk-frontend', express.static(paths.managePrototype.govukFrontendAssets))
+	app.use('/manage-prototype/public', express.static(paths.managePrototype.public))
+	app.use('/manage-prototype/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
 
 	// set up Nunjucks
 
 	app.set('view engine', 'njk')
 
-	const appViews = [paths.managePrototype.views, paths.managePrototype.govukFrontend]
+	const appViews = [paths.managePrototype.views, paths.managePrototype.govukFrontendViews]
 
 	const nunjucksConfig = {
 		autoescape: true,
@@ -38,9 +40,9 @@ const getApp = () => {
 
 	nunjucksConfig.express = app
 
-	nunjucks.configure(appViews, nunjucksConfig)
+	internalRenderer = nunjucks.configure(appViews, nunjucksConfig)
 
-	app.get('/password', (request, response) => {
+	app.get('/manage-prototype/password', (request, response) => {
 		response.locals.error = request.query.error
 		response.locals.returnURL = request.query.returnURL
 		response.render('password')
@@ -59,7 +61,7 @@ const getApp = () => {
 		}
 	}
 
-	app.post('/password', (request, response) => {
+	app.post('/manage-prototype/password', (request, response) => {
 		const password = request.body.password
 		if (config.passwords.includes(password)) {
 			request.session.password = password
@@ -74,4 +76,8 @@ const getApp = () => {
 	return app
 }
 
-export default getApp
+function getInternalRenderer() {
+	return internalRenderer
+}
+
+export { getManagePrototypeApp, getInternalRenderer }

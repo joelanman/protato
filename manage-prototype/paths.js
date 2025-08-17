@@ -9,8 +9,8 @@ const getManagePaths = () => {
 
 	paths.managePrototype.views = path.join(paths.package, 'manage-prototype', 'views')
 	paths.managePrototype.sass = path.join(paths.package, 'manage-prototype', 'assets', 'sass')
-	paths.managePrototype.govukFrontend = path.join(paths.package, 'node_modules', 'govuk-frontend', 'dist')
-	paths.managePrototype.govukFrontendAssets = path.join(paths.managePrototype.govukFrontend, 'govuk/assets')
+	paths.managePrototype.govukFrontend = path.join(paths.package, 'node_modules', 'govuk-frontend')
+	paths.managePrototype.govukFrontendViews = path.join(paths.package, 'node_modules', 'govuk-frontend', 'dist')
 	paths.managePrototype.public = path.join(paths.package, 'manage-prototype', 'public')
 
 	return paths

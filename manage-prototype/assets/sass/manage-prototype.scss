@@ -1,9 +1,9 @@
 $govuk-new-typography-scale: true;
-$govuk-assets-path: "/manage-prototype/govuk-frontend/";
+$govuk-assets-path: "/manage-prototype/govuk-frontend/dist/govuk/assets/";
 $govuk-global-styles: true;
 
 // Import GOV.UK Frontend within the kit dependency
-@import "govuk/index.scss";
+@import "dist/govuk/index.scss";
 
 // SASS for error page
 // @import ".tmp/sass/error-page";
@@ -233,5 +233,47 @@ body .govuk-prototype-kit-manage-prototype-govuk-tag {
     a,a:visited{
       color: #d4351c;
     }
+  }
+}
+
+.govuk-prototype-kit-error-info {
+  strong {
+    min-width: 4em;
+    display: inline-block;
+  }
+}
+
+
+.govuk-prototype-kit-error-code {
+  display: block;
+  border: 1px solid black;
+  padding: 1em;
+  overflow: auto;
+
+  code {
+    line-height: 1.5em;
+    display: inline-block;
+  }
+}
+
+.govuk-prototype-kit-error-code:focus{
+  outline: 3px solid govuk-colour("yellow");
+  outline-offset: 0;
+  box-shadow: inset 0 0 0 2px;
+}
+
+#govuk-prototype-kit-error-line {
+  background: govuk-colour("red");
+  color: govuk-colour("white");
+  padding-right: 1em;
+}
+
+#govuk-prototype-kit-error-stack {
+  overflow: auto;
+}
+
+.js-enabled {
+  #govuk-prototype-kit-error-stack.js-hidden {
+    display: none;
   }
 }
