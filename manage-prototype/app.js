@@ -19,8 +19,8 @@ const getManagePrototypeApp = () => {
 
 	// serve manage prototype assets
 
-	app.use('/manage-prototype/public', express.static(paths.managePrototype.public))
-	app.use('/manage-prototype/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
+	app.use('/public', express.static(paths.managePrototype.public))
+	app.use('/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
 
 	// set up Nunjucks
 
@@ -42,7 +42,7 @@ const getManagePrototypeApp = () => {
 
 	internalRenderer = nunjucks.configure(appViews, nunjucksConfig)
 
-	app.get('/manage-prototype/password', (request, response) => {
+	app.get('/password', (request, response) => {
 		response.locals.error = request.query.error
 		response.locals.returnURL = request.query.returnURL
 		response.render('password')
@@ -61,7 +61,7 @@ const getManagePrototypeApp = () => {
 		}
 	}
 
-	app.post('/manage-prototype/password', (request, response) => {
+	app.post('/password', (request, response) => {
 		const password = request.body.password
 		if (config.passwords.includes(password)) {
 			request.session.password = password
