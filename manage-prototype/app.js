@@ -2,30 +2,9 @@
 
 import express from 'express'
 import { createProxyMiddleware } from 'http-proxy-middleware'
-import nunjucks from 'nunjucks'
-import { getConfig } from '../lib/config.js'
+import { getInternalNunjucksEnv } from '../lib/internal-renderer.js'
 import livereload from '../lib/livereload.js'
 import { getErrorModel } from '../lib/utils/error-model.js'
-import { getManagePaths } from './paths.js'
-
-// used by error pages in prototype app
-
-function getNunjucksConfig() {
-	const config = getConfig()
-	const paths = getManagePaths()
-	const views = [paths.managePrototype.views, paths.managePrototype.govukFrontendViews]
-
-	const nunjucksConfig = {
-		autoescape: true,
-		noCache: true,
-		watch: false
-	}
-
-	if (config.env === 'development') {
-		nunjucksConfig.watch = true
-	}
-	return { views, nunjucksConfig }
-}
 
 const processes = {
 	build: {
@@ -37,8 +16,6 @@ const processes = {
 }
 
 const getManagePrototypeApp = () => {
-	const config = getConfig()
-	const paths = getManagePaths()
 	const app = express()
 
 	// Reverse proxy to prototype server
@@ -47,67 +24,26 @@ const getManagePrototypeApp = () => {
 		target: `http://localhost:${prototypePort}`
 	})
 
-	// set up locals
-
-	const liveReloadPort = process.env.LIVE_RELOAD_PORT
-
-	app.locals = {
-		assetPath: '/manage-prototype/govuk-frontend/assets',
-		protato: {
-			livereloadURL: `http://localhost:${liveReloadPort}/livereload`
-		}
-	}
-
-	// serve manage prototype assets
-
-	app.use('/manage-prototype/public', express.static(paths.managePrototype.public))
-	app.use('/manage-prototype/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
-
 	// nunjucks setup
 
-	const { views, nunjucksConfig } = getNunjucksConfig()
+	const internalNunjucksEnv = getInternalNunjucksEnv()
 
 	app.set('view engine', 'njk')
-	nunjucksConfig.express = app
+	internalNunjucksEnv.express(app)
 
-	nunjucks.configure(views, nunjucksConfig)
-
-	app.get('/manage-prototype/password', (request, response) => {
-		response.locals.error = request.query.error
-		response.locals.returnURL = request.query.returnURL
-		response.render('password')
-	})
-
-	function getSafeReturnURL(returnURL = '/') {
-		if (
-			typeof returnURL === 'string' &&
-			returnURL.startsWith('/') &&
-			!returnURL.startsWith('/manage-prototype/password') &&
-			!returnURL.startsWith('//')
-		) {
-			return returnURL
-		} else {
-			return '/'
-		}
-	}
-
-	app.post('/manage-prototype/password', (request, response) => {
-		const password = request.body.password
-		if (config.passwords.includes(password)) {
-			request.session.password = password
-			const returnURL = getSafeReturnURL(request.body.returnURL)
-			response.redirect(returnURL)
-		} else {
-			const returnURL = encodeURIComponent(request.body.returnURL)
-			response.redirect('/manage-prototype/password?error=wrong-password&returnURL=' + returnURL)
-		}
+	app.get('/manage-prototype', (request, response) => {
+		response.render('home')
 	})
 
 	// handle app server start errors
 
 	app.get('/{*splat}', (request, response, next) => {
 		// ignore asset requests
-		if (request.path.startsWith('/public/') || request.path.startsWith('/plugin-assets/')) {
+		if (
+			request.path.startsWith('/public/') ||
+			request.path.startsWith('/plugin-assets/') ||
+			request.path.startsWith('/manage-prototype/')
+		) {
 			next()
 			return
 		}
@@ -145,4 +81,4 @@ const sendState = (message) => {
 	}
 }
 
-export { getManagePrototypeApp, getNunjucksConfig, sendState }
+export { getManagePrototypeApp, sendState }
