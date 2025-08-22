@@ -3,7 +3,7 @@
 import express from 'express'
 import { createProxyMiddleware } from 'http-proxy-middleware'
 import { getInternalNunjucksEnv } from '../lib/internal-renderer.js'
-import livereload from '../lib/livereload.js'
+import livereload from './livereload.js'
 import { getErrorModel } from '../lib/utils/error-model.js'
 
 const processes = {
@@ -34,6 +34,10 @@ const getManagePrototypeApp = () => {
 	app.get('/manage-prototype', (request, response) => {
 		response.render('home')
 	})
+
+	// live reload
+
+	app.get('/manage-prototype/livereload', livereload.getRoute())
 
 	// handle app server start errors
 
