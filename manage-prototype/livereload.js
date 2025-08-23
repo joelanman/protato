@@ -1,14 +1,14 @@
 import chokidar from 'chokidar'
 import { debounce } from 'radash'
-
 import { getPaths } from '../lib/paths.js'
+import { getServerState } from '../lib/server-manager.js'
 
 let clients = []
 let watcher
 
 const getRoute = () => {
 	const paths = getPaths()
-	
+
 	const route = (request, response) => {
 		console.log('livereload - client connected')
 		response.writeHead(200, {
@@ -25,7 +25,7 @@ const getRoute = () => {
 			clients = clients.filter((client) => client !== response)
 		})
 	}
-	
+
 	console.log([paths.public, paths.views])
 
 	// Watch files
@@ -34,8 +34,11 @@ const getRoute = () => {
 	})
 
 	const debouncedReload = debounce({ delay: 100 }, () => {
-		console.log('livereload - reloading')
-		reload()
+		// only reload if prototype server is running - error server manages itself
+		if (getServerState() === 'prototype') {
+			console.log('livereload - reloading')
+			reload()
+		}
 	})
 
 	watcher.on('change', (path) => {
@@ -44,7 +47,6 @@ const getRoute = () => {
 	})
 
 	return route
-
 }
 
 function reload() {
