@@ -29,6 +29,7 @@
 		"formatter": {
 			"expand": "auto",
 			"lineWidth": 120,
+			"quoteProperties": "preserve",
 			"quoteStyle": "single",
 			"semicolons": "asNeeded",
 			"trailingCommas": "none"

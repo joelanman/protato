@@ -3,7 +3,7 @@
 import express from 'express'
 import { createProxyMiddleware } from 'http-proxy-middleware'
 import { getInternalNunjucksEnv } from '../lib/internal-renderer.js'
-import livereload from './livereload.js'
+import livereload from '../lib/livereload.js'
 
 const getManagePrototypeApp = () => {
 	const app = express()
