@@ -5,14 +5,14 @@ import path from 'node:path'
 
 import * as sass from 'sass'
 
-import { getManagePaths } from './paths.js'
+import { getPaths } from '../lib/paths.js'
 
 function build() {
-	const paths = getManagePaths()
+	const paths = getPaths()
 
 	// sass
 
-	const managePrototypeSassPath = path.join(paths.managePrototype.sass, 'manage-prototype.scss')
+	const managePrototypeSassPath = path.join(paths.internal.sass, 'manage-prototype.scss')
 
 	const managePrototypeSass = fs.readFileSync(managePrototypeSassPath, 'utf-8')
 
@@ -21,11 +21,11 @@ function build() {
 			style: 'compressed', // Options: 'expanded', 'compressed'
 			quietDeps: true,
 			sourceMap: true,
-			loadPaths: [paths.managePrototype.govukFrontend],
+			loadPaths: [paths.internal.govukFrontend],
 			silenceDeprecations: ['import']
 		})
 
-		const outputPath = path.join(paths.managePrototype.public, 'stylesheets/manage-prototype.css')
+		const outputPath = path.join(paths.internal.public, 'stylesheets/manage-prototype.css')
 
 		fs.mkdirSync(path.dirname(outputPath), { recursive: true })
 

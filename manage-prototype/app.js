@@ -1,20 +1,20 @@
 // manage prototype - app
 
 import express from 'express'
-
+import { createProxyMiddleware } from 'http-proxy-middleware'
 import { getInternalNunjucksEnv } from '../lib/internal-renderer.js'
-import { getPaths } from '../lib/paths.js'
+import livereload from '../lib/livereload.js'
 
 const getManagePrototypeApp = () => {
-	const paths = getPaths()
 	const app = express()
 
-	// serve manage prototype assets
+	// Reverse proxy to prototype server
+	const prototypePort = process.env.PROTOTYPE_PORT
+	const prototypeProxy = createProxyMiddleware({
+		target: `http://localhost:${prototypePort}`
+	})
 
-	app.use('/public', express.static(paths.internal.public))
-	app.use('/govuk-frontend', express.static(paths.internal.govukFrontend))
-
-	// set up Nunjucks
+	// nunjucks setup
 
 	const internalNunjucksEnv = getInternalNunjucksEnv()
 
@@ -24,6 +24,14 @@ const getManagePrototypeApp = () => {
 	app.get('/manage-prototype', (request, response) => {
 		response.render('home')
 	})
+
+	// live reload
+
+	app.get('/manage-prototype/livereload', livereload.getRoute())
+
+	// Proxy all remaining routes to prototype server
+
+	app.use(prototypeProxy)
 
 	return app
 }
