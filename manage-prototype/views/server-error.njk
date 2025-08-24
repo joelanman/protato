@@ -67,5 +67,15 @@
     document.getElementById('govuk-prototype-kit-show-error-button')
             .addEventListener('click', toggleErrorStack)
   })()
+
+  if (location.hostname === 'localhost') {
+    const eventSource = new EventSource(protato.livereloadURL)
+    eventSource.onmessage = (message) => {
+      window.location.reload()
+      console.log(message)
+    }
+    eventSource.onopen = () => console.log('Live reload connected')
+    eventSource.onerror = () => console.log('Live reload disconnected')
+  }
 </script>
 {% endblock %}
