@@ -7,7 +7,7 @@ import { stopProcess } from '../lib/utils/stop-process.js'
 const __dirname = import.meta.dirname
 const cliFilePath = path.resolve(__dirname, '../bin/cli.js')
 
-describe.sequential('Server', () => {
+describe('Server', () => {
 	let serverProcess = null
 	let testDir = null
 	const port = 3030
