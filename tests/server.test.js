@@ -93,6 +93,98 @@ describe('Server', () => {
 	})
 })
 
+describe('Server (commonjs prototype)', () => {
+	let serverProcess = null
+	let testDir = null
+	const port = 3031
+	const root = 'http://localhost:' + port
+
+	beforeAll(() => {
+		testDir = path.join(__dirname, '../tmp/test-cjs')
+
+		fs.rmSync(testDir, { recursive: true, force: true })
+		fs.cpSync(path.join(__dirname, '../starter'), testDir, { recursive: true })
+		fs.cpSync(path.join(__dirname, 'fixtures/commonjs-prototype'), testDir, { recursive: true })
+
+		// make it a classic commonjs prototype, like those made by kit v13
+		const packagePath = path.join(testDir, 'package.json')
+		const pkg = JSON.parse(fs.readFileSync(packagePath))
+		delete pkg.type
+		fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2))
+	})
+
+	afterEach(async () => {
+		if (serverProcess) {
+			await stopProcess(serverProcess)
+		}
+	})
+
+	afterAll(() => {
+		fs.rmSync(testDir, { recursive: true, force: true })
+	})
+
+	it('loads user filters, functions, session data and routes', async () => {
+		serverProcess = spawn('node', [cliFilePath, 'dev'], {
+			cwd: testDir,
+			stdio: 'pipe',
+			env: { ...process.env, PORT: port }
+		})
+
+		serverProcess.stdout.pipe(process.stdout)
+		serverProcess.stderr.pipe(process.stderr)
+
+		await waitForServerReady(serverProcess, 'Running at ' + root)
+
+		const view = await (await fetch(root + '/register-test')).text()
+		expect(view).toContain('HI 42 Alice')
+
+		const route = await (await fetch(root + '/hello-route')).text()
+		expect(route).toBe('hello from user route')
+	}, 5000)
+})
+
+describe('Server (error in user routes)', () => {
+	let serverProcess = null
+	let testDir = null
+	const port = 3032
+	const root = 'http://localhost:' + port
+
+	beforeAll(() => {
+		testDir = path.join(__dirname, '../tmp/test-routes-error')
+
+		fs.rmSync(testDir, { recursive: true, force: true })
+		fs.cpSync(path.join(__dirname, '../starter'), testDir, { recursive: true })
+		fs.copyFileSync(path.join(__dirname, 'fixtures/routes-error.js'), path.join(testDir, 'app/routes.js'))
+	})
+
+	afterEach(async () => {
+		if (serverProcess) {
+			await stopProcess(serverProcess)
+		}
+	})
+
+	afterAll(() => {
+		fs.rmSync(testDir, { recursive: true, force: true })
+	})
+
+	it('shows the error page instead of swallowing the error', async () => {
+		serverProcess = spawn('node', [cliFilePath, 'dev'], {
+			cwd: testDir,
+			stdio: 'pipe',
+			env: { ...process.env, PORT: port }
+		})
+
+		serverProcess.stdout.pipe(process.stdout)
+		serverProcess.stderr.pipe(process.stderr)
+
+		const body = await waitForErrorPage(root)
+
+		expect(body).toContain('There is an error')
+		expect(body).toContain('app/routes.js (line 4)')
+		expect(body).toContain('boom in user routes')
+	}, 5000)
+})
+
 // helper function to wait for server ready message in stdout
 async function waitForServerReady(process, readyMessage, timeout = 3000) {
 	return new Promise((resolve, reject) => {
@@ -133,4 +225,21 @@ async function waitForServerReady(process, readyMessage, timeout = 3000) {
 			}
 		})
 	})
+}
+
+// wait for the error page to be served, ignoring any early proxy errors
+async function waitForErrorPage(url, timeout = 4000) {
+	const start = Date.now()
+	while (Date.now() - start < timeout) {
+		try {
+			const body = await (await fetch(url)).text()
+			if (body.includes('There is an error')) {
+				return body
+			}
+		} catch {
+			// server not up yet
+		}
+		await new Promise((resolve) => setTimeout(resolve, 100))
+	}
+	throw new Error(`Error page did not appear within ${timeout}ms`)
 }
