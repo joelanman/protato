@@ -34,11 +34,18 @@ describe('Server', () => {
 	})
 
 	// helper function to start server with given npm script
-	const startServer = async (options) => {
+	const startServer = async (options = {}) => {
 		const env = {
 			...process.env,
-			...options.env,
-			PORT: port
+			...options.env
+		}
+
+		// default to forcing PORT from the test; portFromEnvFile leaves it
+		// unset so the .env file can supply it (shell vars still win otherwise)
+		if (options.portFromEnvFile) {
+			delete env.PORT
+		} else {
+			env.PORT = port
 		}
 
 		const commandArgs = [cliFilePath, ...options.args]
@@ -108,6 +115,30 @@ describe('Server', () => {
 			const css = await response.text()
 			expect(css).toContain('.custom-pkg')
 			expect(css).toContain('#00703c') // govuk-colour("green")
+		}, 5000)
+	})
+
+	describe('environment variables', () => {
+		afterEach(() => {
+			fs.rmSync(path.join(testDir, '.env'), { force: true })
+		})
+
+		it('loads values from .env', async () => {
+			fs.writeFileSync(path.join(testDir, '.env'), 'PORT=' + port)
+
+			await startServer({ args: ['dev'], portFromEnvFile: true })
+
+			const response = await fetch(root)
+			expect(response.status).toBe(200)
+		}, 5000)
+
+		it('lets shell environment variables take precedence over .env', async () => {
+			fs.writeFileSync(path.join(testDir, '.env'), 'PORT=3999')
+
+			await startServer({ args: ['dev'] })
+
+			const response = await fetch(root)
+			expect(response.status).toBe(200)
 		}, 5000)
 	})
 })
