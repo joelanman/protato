@@ -90,6 +90,25 @@ describe('Server', () => {
 			expect(response3.redirected).toBe(true)
 			expect(response3.url).toBe(root + '/?page=1')
 		}, 5000)
+
+		it('compiles custom sass using pkg: URLs into its own CSS file', async () => {
+			fs.writeFileSync(
+				path.join(testDir, 'app/assets/sass/custom-pkg.scss'),
+				`@use "pkg:govuk-frontend/dist/govuk/base" as *;
+                .custom-pkg {
+                  color: govuk-colour("green");
+                }`
+			)
+
+			await startServer({ args: ['dev'] })
+
+			const response = await fetch(root + '/public/stylesheets/custom-pkg.css')
+			expect(response.status).toBe(200)
+
+			const css = await response.text()
+			expect(css).toContain('.custom-pkg')
+			expect(css).toContain('#00703c') // govuk-colour("green")
+		}, 5000)
 	})
 })
 
