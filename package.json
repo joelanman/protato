@@ -3,6 +3,7 @@
 		"protato": "./bin/cli.js"
 	},
 	"name": "protato",
+	"private": true,
 	"version": "0.1.0",
 	"description": "Prototype websites",
 	"main": "index.js",
@@ -18,13 +19,6 @@
 		"test:end": "npx vitest run --config vitest.end.config.js",
 		"test:coverage": "npx vitest run --config vitest.unit.config.js --coverage"
 	},
-	"files": [
-		"bin",
-		"lib",
-		"starter",
-		"views",
-		"index.js"
-	],
 	"author": "Joe Lanman",
 	"license": "ISC",
 	"dependencies": {
