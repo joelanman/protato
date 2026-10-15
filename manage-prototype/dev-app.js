@@ -6,14 +6,14 @@
 import express from 'express'
 import livereload from '../lib/livereload.js'
 import { getPaths } from '../lib/paths.js'
-import nunjucks from './nunjucks.js'
+import managePrototypeNunjucks from './nunjucks.js'
 import { createProxyMiddleware } from './proxy.js'
 
 const getManagePrototypeDevApp = () => {
 	const app = express()
 	const paths = getPaths()
 
-	nunjucks.configure(app)
+	managePrototypeNunjucks.configure(app)
 
 	const managePrototype = express.Router()
 

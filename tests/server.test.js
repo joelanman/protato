@@ -235,6 +235,51 @@ describe('Server (error in user routes)', () => {
 	}, 5000)
 })
 
+describe('Server (error in Sass)', () => {
+	let serverProcess = null
+	let testDir = null
+	const port = 3033
+	const root = 'http://localhost:' + port
+
+	beforeAll(() => {
+		testDir = path.join(__dirname, '../tmp/test-sass-error')
+
+		fs.rmSync(testDir, { recursive: true, force: true })
+		fs.cpSync(path.join(__dirname, '../starter'), testDir, { recursive: true })
+		fs.writeFileSync(path.join(testDir, 'app/assets/sass/application.scss'), 'broken { sass')
+	})
+
+	afterEach(async () => {
+		if (serverProcess) {
+			await stopProcess(serverProcess)
+		}
+	})
+
+	afterAll(() => {
+		fs.rmSync(testDir, { recursive: true, force: true })
+	})
+
+	it.each(['dev', 'start'])(
+		'shows the error page for Sass build errors in %s mode',
+		async (command) => {
+			serverProcess = spawn('node', [cliFilePath, command], {
+				cwd: testDir,
+				stdio: 'pipe',
+				env: { ...process.env, PORT: port, PASSWORD: 'test' }
+			})
+
+			serverProcess.stdout.pipe(process.stdout)
+			serverProcess.stderr.pipe(process.stderr)
+
+			const body = await waitForErrorPage(root)
+
+			expect(body).toContain('There is an error')
+			expect(body).toContain('application.scss')
+		},
+		5000
+	)
+})
+
 // helper function to wait for server ready message in stdout
 async function waitForServerReady(process, readyMessage, timeout = 3000) {
 	return new Promise((resolve, reject) => {

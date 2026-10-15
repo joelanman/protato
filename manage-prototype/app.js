@@ -7,7 +7,7 @@
 import express from 'express'
 import { getConfig } from '../lib/config.js'
 import { getPaths } from '../lib/paths.js'
-import nunjucks from './nunjucks.js'
+import managePrototypeNunjucks from './nunjucks.js'
 
 function getSafeReturnURL(returnURL = '/') {
 	if (
@@ -25,7 +25,7 @@ const getManagePrototypeApp = () => {
 	const app = express()
 	const paths = getPaths()
 
-	nunjucks.configure(app)
+	managePrototypeNunjucks.configure(app)
 
 	// static assets
 	app.use('/public', express.static(paths.managePrototype.public))
