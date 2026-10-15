@@ -1,11 +1,23 @@
 import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import { stopProcess } from '../lib/utils/stop-process.js'
 
 const __dirname = import.meta.dirname
 const cliFilePath = path.resolve(__dirname, '../bin/cli.js')
+
+const stopProcess = async (proc) => {
+	if (proc?.exitCode === null && proc?.signalCode === null) {
+		proc.kill('SIGTERM')
+		const forceKillTimeout = setTimeout(() => proc.kill('SIGKILL'), 2000)
+		try {
+			await once(proc, 'exit')
+		} finally {
+			clearTimeout(forceKillTimeout)
+		}
+	}
+}
 
 describe('Server', () => {
 	let serverProcess = null
