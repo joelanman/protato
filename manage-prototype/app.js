@@ -1,44 +1,55 @@
 // manage prototype - app
+//
+// Sub-app mounted by the prototype server at /manage-prototype.
+// Handles pages that need the session (password, and later clear session)
+// plus static assets.
 
 import express from 'express'
-import { getInternalNunjucksEnv } from '../lib/internal-renderer.js'
-import livereload from '../lib/livereload.js'
+import { getConfig } from '../lib/config.js'
 import { getPaths } from '../lib/paths.js'
-import { createProxyMiddleware } from './proxy.js'
+import nunjucks from './nunjucks.js'
+
+function getSafeReturnURL(returnURL = '/') {
+	if (
+		typeof returnURL === 'string' &&
+		returnURL.startsWith('/') &&
+		!returnURL.startsWith('/manage-prototype/password') &&
+		!returnURL.startsWith('//')
+	) {
+		return returnURL
+	}
+	return '/'
+}
 
 const getManagePrototypeApp = () => {
 	const app = express()
 	const paths = getPaths()
 
-	// Reverse proxy to prototype server
-	const prototypePort = process.env.PROTOTYPE_PORT
-	const prototypeProxy = createProxyMiddleware({
-		target: `http://localhost:${prototypePort}`
+	nunjucks.configure(app)
+
+	// static assets
+	app.use('/public', express.static(paths.managePrototype.public))
+	app.use('/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
+
+	// password
+	app.get('/password', (request, response) => {
+		response.render('password', {
+			error: request.query.error,
+			returnURL: request.query.returnURL
+		})
 	})
 
-	// serve internal assets
-
-	app.use('/manage-prototype/public', express.static(paths.internal.public))
-	app.use('/manage-prototype/govuk-frontend', express.static(paths.internal.govukFrontend))
-
-	// nunjucks setup
-
-	const internalNunjucksEnv = getInternalNunjucksEnv()
-
-	app.set('view engine', 'njk')
-	internalNunjucksEnv.express(app)
-
-	app.get('/manage-prototype', (request, response) => {
-		response.render('home')
+	app.post('/password', (request, response) => {
+		const password = request.body.password
+		if (getConfig().passwords.includes(password)) {
+			request.session.password = password
+			const returnURL = getSafeReturnURL(request.body.returnURL)
+			response.redirect(returnURL)
+		} else {
+			const returnURL = encodeURIComponent(request.body.returnURL)
+			response.redirect('/manage-prototype/password?error=wrong-password&returnURL=' + returnURL)
+		}
 	})
-
-	// live reload
-
-	app.get('/manage-prototype/livereload', livereload.getRoute())
-
-	// Proxy all remaining routes to prototype server
-
-	app.use(prototypeProxy)
 
 	return app
 }

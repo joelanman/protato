@@ -1,0 +1,63 @@
+import express from 'express'
+import request from 'supertest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getManagePrototypeApp } from './app.js'
+
+vi.mock('../lib/config.js', () => ({
+	getConfig: vi.fn(() => ({ passwords: ['secret'] }))
+}))
+
+describe('manage prototype app', () => {
+	let app, session
+
+	beforeEach(() => {
+		session = {}
+		app = express()
+		app.use(express.urlencoded({ extended: true }))
+		app.use((req, res, next) => {
+			res.render = (view, model) => res.send(`${view} ${JSON.stringify(model)}`)
+			req.session = session
+			next()
+		})
+		app.use('/manage-prototype', getManagePrototypeApp())
+	})
+
+	it('renders the password page with error and return URL', async () => {
+		const response = await request(app).get('/manage-prototype/password?error=wrong-password&returnURL=%2Fpage')
+
+		expect(response.status).toBe(200)
+		expect(response.text).toBe('password {"error":"wrong-password","returnURL":"/page"}')
+	})
+
+	it('stores the password in the session and redirects to the return URL', async () => {
+		const response = await request(app)
+			.post('/manage-prototype/password')
+			.type('form')
+			.send({ password: 'secret', returnURL: '/page' })
+
+		expect(session.password).toBe('secret')
+		expect(response.status).toBe(302)
+		expect(response.headers.location).toBe('/page')
+	})
+
+	it('redirects to / when the return URL is unsafe', async () => {
+		for (const returnURL of ['//evil.com', 'https://evil.com', '/manage-prototype/password']) {
+			const response = await request(app)
+				.post('/manage-prototype/password')
+				.type('form')
+				.send({ password: 'secret', returnURL })
+
+			expect(response.headers.location).toBe('/')
+		}
+	})
+
+	it('redirects back to the password page when the password is wrong', async () => {
+		const response = await request(app)
+			.post('/manage-prototype/password')
+			.type('form')
+			.send({ password: 'nope', returnURL: '/page' })
+
+		expect(session.password).toBeUndefined()
+		expect(response.headers.location).toBe('/manage-prototype/password?error=wrong-password&returnURL=%2Fpage')
+	})
+})
