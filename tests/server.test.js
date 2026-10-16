@@ -105,9 +105,15 @@ describe('Server', () => {
 			const response2 = await fetch(root + '/manage-prototype/password')
 			expect(response2.status).toBe(200)
 
-			const response3 = await fetch(root + '/?page=1', { method: 'POST' })
-			expect(response3.redirected).toBe(true)
-			expect(response3.url).toBe(root + '/?page=1')
+			const response3 = await fetch(root + '/manage-prototype/clear-data')
+			expect(response3.status).toBe(200)
+
+			const response4 = await fetch(root + '/manage-prototype/clear-data', { method: 'POST' })
+			expect(response4.status).toBe(200)
+
+			const response5 = await fetch(root + '/?page=1', { method: 'POST' })
+			expect(response5.redirected).toBe(true)
+			expect(response5.url).toBe(root + '/?page=1')
 		}, 5000)
 
 		it('compiles custom sass using pkg: URLs into its own CSS file', async () => {

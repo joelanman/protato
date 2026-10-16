@@ -51,6 +51,28 @@ describe('manage prototype app', () => {
 		}
 	})
 
+	describe('GET /clear-data', () => {
+		it('renders the clear-data page', async () => {
+			const response = await request(app).get('/manage-prototype/clear-data')
+
+			expect(response.status).toBe(200)
+			expect(response.text).toBe('clear-data undefined')
+		})
+	})
+
+	describe('POST /clear-data', () => {
+		it('clears session data and renders success page', async () => {
+			session.data = { name: 'Alice', age: '30' }
+
+			const response = await request(app)
+				.post('/manage-prototype/clear-data')
+
+			expect(session.data).toEqual({})
+			expect(response.status).toBe(200)
+			expect(response.text).toBe('clear-data-success undefined')
+		})
+	})
+
 	it('redirects back to the password page when the password is wrong', async () => {
 		const response = await request(app)
 			.post('/manage-prototype/password')

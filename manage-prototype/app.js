@@ -1,7 +1,7 @@
 // manage prototype - app
 //
 // Sub-app mounted by the prototype server at /manage-prototype.
-// Handles pages that need the session (password, and later clear session)
+// Handles pages that need the session (password, clear data)
 // plus static assets.
 
 import express from 'express'
@@ -30,6 +30,16 @@ const getManagePrototypeApp = () => {
 	// static assets
 	app.use('/public', express.static(paths.managePrototype.public))
 	app.use('/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
+
+	// clear session data
+	app.get('/clear-data', (request, response) => {
+		response.render('clear-data')
+	})
+
+	app.post('/clear-data', (request, response) => {
+		request.session.data = {}
+		response.render('clear-data-success')
+	})
 
 	// password
 	app.get('/password', (request, response) => {

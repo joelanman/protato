@@ -1,0 +1,23 @@
+{% extends "layout.njk" %}
+
+{% from "govuk/components/warning-text/macro.njk" import govukWarningText %}
+{% from "govuk/components/button/macro.njk" import govukButton %}
+
+{% block content %}
+
+    <h1 class="govuk-heading-l">
+        Clear session data
+    </h1>
+
+    {{ govukWarningText({
+        text: "This will clear all of the data entered in this session",
+        iconFallbackText: "Warning"
+    }) }}
+
+    <form method="post">
+        {{ govukButton({
+            text: "Clear the data"
+        }) }}
+    </form>
+
+{% endblock %}
