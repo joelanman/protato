@@ -13,7 +13,7 @@ window.GOVUKPrototypeKit = {
 }
 
 if (location.hostname === 'localhost') {
-	const eventSource = new EventSource(protato.livereloadURL)
+	const eventSource = new EventSource('/manage-prototype/livereload')
 	eventSource.onmessage = () => window.location.reload()
 	eventSource.onopen = () => console.log('Live reload connected')
 	eventSource.onerror = () => console.log('Live reload disconnected')

@@ -10,11 +10,6 @@
 
 {% block bodyEnd %}
   {% block scripts %}
-      <script>
-        protato = {
-          livereloadURL: '{{ protato.livereloadURL }}'
-        }
-      </script>
       <script type="module" src="/manage-prototype/govuk-frontend/dist/govuk/govuk-frontend.min.js"></script>
       <script type="module">
         import { initAll } from '/manage-prototype/govuk-frontend/dist/govuk/govuk-frontend.min.js'

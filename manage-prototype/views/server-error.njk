@@ -69,7 +69,7 @@
   })()
 
   if (location.hostname === 'localhost') {
-    const eventSource = new EventSource(protato.livereloadURL)
+    const eventSource = new EventSource('/manage-prototype/livereload')
     eventSource.onmessage = (message) => {
       window.location.reload()
       console.log(message)

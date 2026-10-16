@@ -22,7 +22,6 @@ function getEnv() {
 
 	nunjucksEnv = nunjucks.configure(views, nunjucksConfig)
 
-	nunjucksEnv.addGlobal('protato', { livereloadURL: paths.managePrototype.livereload })
 	nunjucksEnv.addGlobal('assetPath', '/manage-prototype/govuk-frontend/dist/govuk/assets')
 
 	return nunjucksEnv
