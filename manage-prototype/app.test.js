@@ -64,8 +64,7 @@ describe('manage prototype app', () => {
 		it('clears session data and renders success page', async () => {
 			session.data = { name: 'Alice', age: '30' }
 
-			const response = await request(app)
-				.post('/manage-prototype/clear-data')
+			const response = await request(app).post('/manage-prototype/clear-data')
 
 			expect(session.data).toEqual({})
 			expect(response.status).toBe(200)
