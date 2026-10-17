@@ -52,7 +52,7 @@
 
 {% block bodyEnd %}
   {% block scripts %}
-    {% for script in protato.scripts %}
+    {% for script in GOVUKPrototypeKit.scripts %}
       {% if script.type|length %}
         <script type="{{ script.type }}" src="{{ script.src }}"></script>
       {% else %}
