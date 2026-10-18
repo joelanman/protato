@@ -124,6 +124,20 @@ describe('Server', () => {
 				root + '/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js'
 			)
 			expect(kitScriptResponse.status).toBe(200)
+
+			fs.writeFileSync(path.join(testDir, 'app/views/auto-render-test.html'), 'auto rendered page')
+			const autoRenderResponse = await fetch(root + '/auto-render-test')
+			expect(autoRenderResponse.status).toBe(200)
+			expect(await autoRenderResponse.text()).toBe('auto rendered page')
+
+			const nodeModulesResponse = await fetch(root + '/@govuk-prototype-kit/common-templates/templates/start')
+			expect(nodeModulesResponse.status).toBe(404)
+
+			const notFoundResponse = await fetch(root + '/does-not-exist')
+			expect(notFoundResponse.status).toBe(404)
+			const notFoundHtml = await notFoundResponse.text()
+			expect(notFoundHtml).toContain('Page not found')
+			expect(notFoundHtml).not.toContain('Template render error')
 		}, 5000)
 
 		it('compiles custom sass using pkg: URLs into its own CSS file', async () => {
