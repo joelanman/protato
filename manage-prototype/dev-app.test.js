@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -190,8 +191,13 @@ describe('manage prototype dev app', () => {
 		it('copies the template and redirects to the created page', async () => {
 			const response = await postCreate('/my-folder/my-page')
 
-			expect(fs.mkdirSync).toHaveBeenCalledWith('/mock/project/app/views/my-folder', { recursive: true })
-			expect(fs.copyFileSync).toHaveBeenCalledWith(templateFilePath, '/mock/project/app/views/my-folder/my-page.html')
+			expect(fs.mkdirSync).toHaveBeenCalledWith(path.join('/mock/project/app/views', 'my-folder'), {
+				recursive: true
+			})
+			expect(fs.copyFileSync).toHaveBeenCalledWith(
+				templateFilePath,
+				path.join('/mock/project/app/views', 'my-folder', 'my-page.html')
+			)
 			expect(response.status).toBe(302)
 			expect(response.headers.location).toBe('/manage-prototype/templates/created?newPagePath=%2Fmy-folder%2Fmy-page')
 		})
@@ -220,7 +226,10 @@ describe('manage prototype dev app', () => {
 			expect(response.headers.location).toBe(
 				`/manage-prototype/templates/created?newPagePath=${encodeURIComponent(normalised)}`
 			)
-			expect(fs.copyFileSync).toHaveBeenCalledWith(templateFilePath, `/mock/project/app/views${normalised}.html`)
+			expect(fs.copyFileSync).toHaveBeenCalledWith(
+				templateFilePath,
+				path.join('/mock/project/app/views', `${normalised}.html`)
+			)
 		})
 
 		it.each([

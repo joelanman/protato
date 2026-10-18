@@ -1,0 +1,4 @@
+# Normalise line endings so files are always checked out with LF, even on
+# Windows (where git defaults to core.autocrlf=true and would otherwise check
+# out CRLF, which Biome reports as formatting errors).
+* text=auto eol=lf

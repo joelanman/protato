@@ -2,7 +2,6 @@
 // manage prototype app, so pages render with the same views, layouts, macros,
 // filters and locals as a real prototype page.
 
-import path from 'node:path'
 import { notFound } from '../../lib/middleware/errors.js'
 import plugins from '../../lib/plugins.js'
 
@@ -16,7 +15,7 @@ function templatePreview(request, response, next) {
 		return next(notFound(`Template not found: ${packageName} ${templatePath}`, reason))
 	}
 
-	response.render(path.join(packageName, templatePath))
+	response.render(`${packageName}${templatePath}`)
 }
 
 export default templatePreview

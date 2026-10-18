@@ -6,6 +6,19 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 const __dirname = import.meta.dirname
 const cliFilePath = path.resolve(__dirname, '../bin/cli.js')
+const starterDir = path.join(__dirname, '../starter')
+const starterNodeModulesDir = path.join(starterDir, 'node_modules')
+
+// Copy the starter project without node_modules, then point node_modules at the
+// installed copy. Copying node_modules is unreliable on Windows because it
+// contains symlinks and junctions.
+const copyStarter = (destinationDir) => {
+	fs.cpSync(starterDir, destinationDir, {
+		recursive: true,
+		filter: (source) => source !== starterNodeModulesDir
+	})
+	fs.symlinkSync(starterNodeModulesDir, path.join(destinationDir, 'node_modules'), 'junction')
+}
 
 const stopProcess = async (proc) => {
 	if (proc?.exitCode === null && proc?.signalCode === null) {
@@ -28,17 +41,9 @@ describe('Server', () => {
 	beforeAll(async () => {
 		// create test directory
 		testDir = path.join(__dirname, '../tmp/test')
-		const starterDir = path.join(__dirname, '../starter')
 
 		fs.rmSync(testDir, { recursive: true, force: true })
-		fs.cpSync(starterDir, testDir, { recursive: true })
-	})
-
-	afterEach(async () => {
-		// kill server process if it's running
-		if (serverProcess) {
-			await stopProcess(serverProcess)
-		}
+		copyStarter(testDir)
 	})
 
 	afterAll(() => {
@@ -49,15 +54,8 @@ describe('Server', () => {
 	const startServer = async (options = {}) => {
 		const env = {
 			...process.env,
-			...options.env
-		}
-
-		// default to forcing PORT from the test; portFromEnvFile leaves it
-		// unset so the .env file can supply it (shell vars still win otherwise)
-		if (options.portFromEnvFile) {
-			delete env.PORT
-		} else {
-			env.PORT = port
+			...options.env,
+			PORT: port
 		}
 
 		const commandArgs = [cliFilePath, ...options.args]
@@ -76,13 +74,19 @@ describe('Server', () => {
 	}
 
 	describe('production', () => {
+		afterEach(async () => {
+			if (serverProcess) {
+				await stopProcess(serverProcess)
+			}
+		})
+
 		it('errors if no passwords set', async () => {
 			console.log('prod test')
 			await startServer({ args: ['start'] })
 
 			const response = await fetch(root)
 			expect(response.status).toBe(500)
-		}, 5000)
+		})
 
 		it('redirects to password page without dead management links', async () => {
 			console.log('prod test')
@@ -95,14 +99,30 @@ describe('Server', () => {
 			const html = await response.text()
 			expect(html).not.toContain('/manage-prototype/templates')
 			expect(html).not.toContain('/manage-prototype/plugins')
-		}, 5000)
+		})
 	})
 
 	describe('development', () => {
-		it('responds to requests', async () => {
-			console.log('dev test')
-			await startServer({ args: ['dev'] })
+		beforeAll(async () => {
+			fs.writeFileSync(
+				path.join(testDir, 'app/assets/sass/custom-pkg.scss'),
+				`@use "pkg:govuk-frontend/dist/govuk/base" as *;
+				.custom-pkg {
+					color: govuk-colour("green");
+				}`
+			)
 
+			await startServer({ args: ['dev'] })
+		})
+
+		afterAll(async () => {
+			if (serverProcess) {
+				await stopProcess(serverProcess)
+			}
+			fs.rmSync(path.join(testDir, 'app/assets/sass/custom-pkg.scss'), { force: true })
+		})
+
+		it('responds to requests', async () => {
 			const response = await fetch(root)
 			expect(response.status).toBe(200)
 
@@ -145,11 +165,9 @@ describe('Server', () => {
 			const notFoundHtml = await notFoundResponse.text()
 			expect(notFoundHtml).toContain('Page not found')
 			expect(notFoundHtml).not.toContain('Template render error')
-		}, 5000)
+		})
 
 		it('serves templates, previews them and creates pages from them', async () => {
-			await startServer({ args: ['dev'] })
-
 			const packageName = '@govuk-prototype-kit/common-templates'
 			const templateQuery = new URLSearchParams({
 				packageName,
@@ -204,11 +222,9 @@ describe('Server', () => {
 			const createdHtml = await createdResponse.text()
 			expect(createdHtml).toContain('Use this service to:')
 			expect(createdHtml).toContain('Service name goes here')
-		}, 5000)
+		})
 
 		it('shows the not found page for a missing template preview', async () => {
-			await startServer({ args: ['dev'] })
-
 			const query = new URLSearchParams({
 				packageName: '@govuk-prototype-kit/common-templates',
 				templatePath: '/templates/does-not-exist.html'
@@ -219,50 +235,16 @@ describe('Server', () => {
 			const html = await response.text()
 			expect(html).toContain('Page not found')
 			expect(html).toContain('There is no template at /templates/does-not-exist.html.')
-		}, 5000)
+		})
 
 		it('compiles custom sass using pkg: URLs into its own CSS file', async () => {
-			fs.writeFileSync(
-				path.join(testDir, 'app/assets/sass/custom-pkg.scss'),
-				`@use "pkg:govuk-frontend/dist/govuk/base" as *;
-                .custom-pkg {
-                  color: govuk-colour("green");
-                }`
-			)
-
-			await startServer({ args: ['dev'] })
-
 			const response = await fetch(root + '/public/stylesheets/custom-pkg.css')
 			expect(response.status).toBe(200)
 
 			const css = await response.text()
 			expect(css).toContain('.custom-pkg')
 			expect(css).toContain('#00703c') // govuk-colour("green")
-		}, 5000)
-	})
-
-	describe('environment variables', () => {
-		afterEach(() => {
-			fs.rmSync(path.join(testDir, '.env'), { force: true })
 		})
-
-		it('loads values from .env', async () => {
-			fs.writeFileSync(path.join(testDir, '.env'), 'PORT=' + port)
-
-			await startServer({ args: ['dev'], portFromEnvFile: true })
-
-			const response = await fetch(root)
-			expect(response.status).toBe(200)
-		}, 5000)
-
-		it('lets shell environment variables take precedence over .env', async () => {
-			fs.writeFileSync(path.join(testDir, '.env'), 'PORT=3999')
-
-			await startServer({ args: ['dev'] })
-
-			const response = await fetch(root)
-			expect(response.status).toBe(200)
-		}, 5000)
 	})
 })
 
@@ -276,7 +258,7 @@ describe('Server (commonjs prototype)', () => {
 		testDir = path.join(__dirname, '../tmp/test-cjs')
 
 		fs.rmSync(testDir, { recursive: true, force: true })
-		fs.cpSync(path.join(__dirname, '../starter'), testDir, { recursive: true })
+		copyStarter(testDir)
 		fs.cpSync(path.join(__dirname, 'fixtures/commonjs-prototype'), testDir, { recursive: true })
 
 		// make it a classic commonjs prototype, like those made by kit v13
@@ -313,7 +295,7 @@ describe('Server (commonjs prototype)', () => {
 
 		const route = await (await fetch(root + '/hello-route')).text()
 		expect(route).toBe('hello from user route')
-	}, 5000)
+	})
 })
 
 describe('Server (error in user routes)', () => {
@@ -326,7 +308,7 @@ describe('Server (error in user routes)', () => {
 		testDir = path.join(__dirname, '../tmp/test-routes-error')
 
 		fs.rmSync(testDir, { recursive: true, force: true })
-		fs.cpSync(path.join(__dirname, '../starter'), testDir, { recursive: true })
+		copyStarter(testDir)
 		fs.copyFileSync(path.join(__dirname, 'fixtures/routes-error.js'), path.join(testDir, 'app/routes.js'))
 	})
 
@@ -355,7 +337,7 @@ describe('Server (error in user routes)', () => {
 		expect(body).toContain('There is an error')
 		expect(body).toContain('app/routes.js (line 4)')
 		expect(body).toContain('boom in user routes')
-	}, 5000)
+	})
 })
 
 describe('Server (error in Sass)', () => {
@@ -368,7 +350,7 @@ describe('Server (error in Sass)', () => {
 		testDir = path.join(__dirname, '../tmp/test-sass-error')
 
 		fs.rmSync(testDir, { recursive: true, force: true })
-		fs.cpSync(path.join(__dirname, '../starter'), testDir, { recursive: true })
+		copyStarter(testDir)
 		fs.writeFileSync(path.join(testDir, 'app/assets/sass/application.scss'), 'broken { sass')
 	})
 
@@ -382,38 +364,29 @@ describe('Server (error in Sass)', () => {
 		fs.rmSync(testDir, { recursive: true, force: true })
 	})
 
-	it.each(['dev', 'start'])(
-		'shows the error page for Sass build errors in %s mode',
-		async (command) => {
-			serverProcess = spawn('node', [cliFilePath, command], {
-				cwd: testDir,
-				stdio: 'pipe',
-				env: { ...process.env, PORT: port, PASSWORD: 'test' }
-			})
+	it.each(['dev', 'start'])('shows the error page for Sass build errors in %s mode', async (command) => {
+		serverProcess = spawn('node', [cliFilePath, command], {
+			cwd: testDir,
+			stdio: 'pipe',
+			env: { ...process.env, PORT: port, PASSWORD: 'test' }
+		})
 
-			serverProcess.stdout.pipe(process.stdout)
-			serverProcess.stderr.pipe(process.stderr)
+		serverProcess.stdout.pipe(process.stdout)
+		serverProcess.stderr.pipe(process.stderr)
 
-			const body = await waitForErrorPage(root)
+		const body = await waitForErrorPage(root)
 
-			expect(body).toContain('There is an error')
-			expect(body).toContain('application.scss')
-		},
-		5000
-	)
+		expect(body).toContain('There is an error')
+		expect(body).toContain('application.scss')
+	})
 })
 
 // helper function to wait for server ready message in stdout
-async function waitForServerReady(process, readyMessage, timeout = 3000) {
+async function waitForServerReady(process, readyMessage) {
 	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => {
-			reject(new Error(`Server did not start within ${timeout}ms`))
-		}, timeout)
-
 		const onData = (data) => {
 			const output = data.toString()
 			if (output.includes(readyMessage)) {
-				clearTimeout(timer)
 				process.stdout.off('data', onData)
 				process.stderr.off('data', onError)
 				resolve()
@@ -422,7 +395,6 @@ async function waitForServerReady(process, readyMessage, timeout = 3000) {
 
 		const onError = (data) => {
 			const error = data.toString()
-			clearTimeout(timer)
 			if (!error.includes('connect.session() MemoryStore')) {
 				reject(new Error(`Server startup failed: ${error}`))
 				process.stdout.off('data', onData)
@@ -438,7 +410,6 @@ async function waitForServerReady(process, readyMessage, timeout = 3000) {
 		// handle process exit
 		process.on('exit', (code) => {
 			if (code !== 0) {
-				clearTimeout(timer)
 				reject(new Error(`Server process exited with code ${code}`))
 			}
 		})

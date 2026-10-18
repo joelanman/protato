@@ -121,7 +121,7 @@ router.get('/created', (request, response) => {
 	response.render('templates/created', {
 		pageName: 'Page created',
 		newPagePath,
-		filePath: path.join('app', 'views', `${newPagePath}.html`)
+		filePath: `app/views${newPagePath}.html`
 	})
 })
 

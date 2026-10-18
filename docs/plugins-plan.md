@@ -31,7 +31,7 @@ The plan for plugin support in Protato and the plugins management UI.
 - **Paths (Windows):**
   - Use `path.join` only for filesystem paths passed to `fs`, `require`, `import()` or `express.static`.
   - Keep `/` for URLs (`/plugin-assets/<pkg>/<path>`), Nunjucks template names, and manifest comparisons.
-  - For Sass `@import` strings, backslashes break CSS parsing: use `pathToFileURL(absolutePath).href` for absolute paths and `/` for plugin paths.
+  - For Sass `@import` strings, backslashes break CSS parsing: use `.replaceAll('\\', '/')` on filesystem paths and `/` for plugin paths.
 - **Code:** ESM, tabs and Biome (`npm run lint`). Match surrounding code:
   - Keep logic simple, explicit and flat—prefer plain `for...of` loops over dense functional chains (like `Object.fromEntries(Object.entries(...).map(...))`).
   - Use consistent naming: call `govuk-prototype-kit.config.json` `config` (not `manifest`), and call npm package names `packageName` (not `pluginName` or `dependency`).
@@ -42,12 +42,12 @@ The plan for plugin support in Protato and the plugins management UI.
 
 ## 3. Phases overview
 
-- **Phase 1: Fix existing plugin loading & Windows support (T1–T4)** *(detailed below)*
+- **Phase 1: Fix existing plugin loading & Windows support (T1–T4)** ✅ *(Done)*
   - ✅ T1: Real-file test harness for plugins
   - ✅ T2: Normalise plugin configs on read
   - ✅ T3: Plugin order and view precedence
-  - ⬜ T4: Windows CI and Windows-safe paths *(next)*
-- **Phase 2: Missing kit plugin compatibility (T5–T9)** *(to be detailed after Phase 1)*
+  - ✅ T4: Windows CI and Windows-safe paths
+- **Phase 2: Missing kit plugin compatibility (T5–T9)** *(to be detailed next)*
   - T5: Runtime API gaps (`requests.serveDirectory`, `setupRouter` check, `addFunction` `renderAsHtml`, safe `getFilter`/`getFunction`)
   - T6: Require hook (`govuk-prototype-kit/lib/config` without `.js`, quiet logging, clear error on unsupported subpaths)
   - T7: `stylesheets` config key, `/extension-assets` alias, `pluginConfig`/`extensionConfig` locals, kit Nunjucks includes
@@ -64,9 +64,7 @@ The plan for plugin support in Protato and the plugins management UI.
 
 ---
 
-## 4. Phase 1 tasks: Fix existing plugin loading & Windows support
-
-Work through T1 to T4 one at a time, stopping for review after each task.
+## 4. Phase 1 tasks: Fix existing plugin loading & Windows support (Done)
 
 ### ✅ T1 — Real-file test harness for plugins (Done)
 
@@ -86,16 +84,6 @@ Work through T1 to T4 one at a time, stopping for review after each task.
 
 ---
 
-### T4 — Windows CI and Windows-safe paths
+### ✅ T4 — Windows CI and Windows-safe paths (Done)
 
-**Why:** Sass `@import` strings and some URLs/test assertions currently use `path.join`, which produces backslashes on Windows and breaks Sass compilation.
-
-**Files:** `.github/workflows/node.js.yml`, `lib/build.js`, `lib/plugins.js`, tests
-
-**Steps**
-1. Add `windows-latest` to the GitHub Actions CI matrix.
-2. In `lib/build.js` and `lib/plugins.js`, build Sass `@import` strings for absolute paths with `pathToFileURL(p).href` and for plugin paths with `/`.
-3. Ensure no URL, Sass import, or Nunjucks template name is built with `path.join`.
-4. Fix any existing tests that fail on Windows path separators.
-
-**Done when:** `npm test` passes, a unit test verifies generated `application.scss` has no backslashes, and CI is configured for both Ubuntu and Windows. **Stop for review.**
+**Files:** `.github/workflows/node.js.yml`, `lib/build.js`, `lib/plugins.js`, `lib/utils/error-model.js`, `manage-prototype/routes/template-preview.js`, `manage-prototype/routes/templates.js`, tests
