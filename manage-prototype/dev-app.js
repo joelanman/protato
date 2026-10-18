@@ -4,14 +4,18 @@
 
 import express from 'express'
 import livereload from '../lib/livereload.js'
+import { errorHandler } from '../lib/middleware/errors.js'
 import { getPaths } from '../lib/paths.js'
 import managePrototypeNunjucks from './nunjucks.js'
+import templateRoutes from './routes/templates.js'
 
 const getManagePrototypeDevApp = () => {
 	const app = express()
 	const paths = getPaths()
 
 	managePrototypeNunjucks.configure(app)
+
+	app.use(express.urlencoded({ extended: true }))
 
 	// static assets
 	app.use('/public', express.static(paths.managePrototype.public))
@@ -22,12 +26,22 @@ const getManagePrototypeDevApp = () => {
 		response.render('home')
 	})
 
+	// /templates/view is mounted by the prototype app (lib/app.js) because
+	// previews need prototype views and locals. Unmatched requests fall through
+	// to the prototype server via the dev server's proxy.
+	app.use('/templates', templateRoutes)
+
 	app.get('/plugins', (request, response) => {
 		response.render('plugins', { pageName: 'Plugins' })
 	})
 
 	// live reload
 	app.get('/livereload', livereload.getRoute())
+
+	// errors raised by the manage UI (such as a template that doesn't exist)
+	// render our own not found and server error pages. Unmatched requests are
+	// left alone so they still fall through to the prototype server's proxy.
+	app.use(errorHandler)
 
 	return app
 }

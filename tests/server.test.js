@@ -147,6 +147,80 @@ describe('Server', () => {
 			expect(notFoundHtml).not.toContain('Template render error')
 		}, 5000)
 
+		it('serves templates, previews them and creates pages from them', async () => {
+			await startServer({ args: ['dev'] })
+
+			const packageName = '@govuk-prototype-kit/common-templates'
+			const templateQuery = new URLSearchParams({
+				packageName,
+				templatePath: '/templates/start.html'
+			}).toString()
+			const managePath = (action) => `/manage-prototype/templates/${action}?${templateQuery}`
+			const manageUrl = (action) => root + managePath(action)
+			const htmlHref = (path) => `href="${path.replaceAll('&', '&amp;')}"`
+
+			const listResponse = await fetch(root + '/manage-prototype/templates')
+			expect(listResponse.status).toBe(200)
+			const listHtml = await listResponse.text()
+			expect(listHtml).toContain('Templates - Manage your prototype')
+			expect(listHtml).toContain('Start page')
+			expect(listHtml).toContain('Common Templates')
+			expect(listHtml).toContain('From GOV.UK Prototype Kit')
+			expect(listHtml).toContain(htmlHref(managePath('view')))
+			expect(listHtml).toContain(htmlHref(managePath('create')))
+
+			const previewResponse = await fetch(manageUrl('view'))
+			expect(previewResponse.status).toBe(200)
+			const previewHtml = await previewResponse.text()
+			expect(previewHtml).toContain('Service name goes here')
+			expect(previewHtml).toContain('href="/manage-prototype"')
+
+			const unbrandedQuery = new URLSearchParams({
+				packageName,
+				templatePath: '/templates/blank-unbranded.html'
+			})
+			const unbrandedResponse = await fetch(root + `/manage-prototype/templates/view?${unbrandedQuery}`)
+			expect(unbrandedResponse.status).toBe(200)
+			const unbrandedHtml = await unbrandedResponse.text()
+			expect(unbrandedHtml).toContain('/public/stylesheets/unbranded.css')
+			expect(unbrandedHtml).toContain('Unbranded page template')
+			expect(unbrandedHtml).toContain('/plugin-assets/govuk-prototype-kit/plugin/assets/images/unbranded.ico')
+			expect(unbrandedHtml).not.toContain('govuk-header__')
+
+			const newPagePath = '/created-from-template'
+			const createResponse = await fetch(manageUrl('create'), {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ newPagePath }),
+				redirect: 'manual'
+			})
+			expect(createResponse.status).toBe(302)
+			expect(createResponse.headers.get('location')).toBe(
+				`/manage-prototype/templates/created?newPagePath=${encodeURIComponent(newPagePath)}`
+			)
+
+			const createdResponse = await fetch(root + newPagePath)
+			expect(createdResponse.status).toBe(200)
+			const createdHtml = await createdResponse.text()
+			expect(createdHtml).toContain('Use this service to:')
+			expect(createdHtml).toContain('Service name goes here')
+		}, 5000)
+
+		it('shows the not found page for a missing template preview', async () => {
+			await startServer({ args: ['dev'] })
+
+			const query = new URLSearchParams({
+				packageName: '@govuk-prototype-kit/common-templates',
+				templatePath: '/templates/does-not-exist.html'
+			})
+			const response = await fetch(root + `/manage-prototype/templates/view?${query}`)
+
+			expect(response.status).toBe(404)
+			const html = await response.text()
+			expect(html).toContain('Page not found')
+			expect(html).toContain('There is no template at /templates/does-not-exist.html.')
+		}, 5000)
+
 		it('compiles custom sass using pkg: URLs into its own CSS file', async () => {
 			fs.writeFileSync(
 				path.join(testDir, 'app/assets/sass/custom-pkg.scss'),

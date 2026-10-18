@@ -15,9 +15,15 @@
         Page not found
       </h1>
 
-      <p>
-        There is no page at <strong>{{ path }}</strong>
-      </p>
+      {% if reason %}
+        <p>
+          {{ reason }}
+        </p>
+      {% else %}
+        <p>
+          There is no page at <strong>{{ path }}</strong>
+        </p>
+      {% endif %}
 
       <p>
         This may be because:
