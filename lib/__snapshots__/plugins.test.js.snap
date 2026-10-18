@@ -4,6 +4,18 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
 {
   "assetPaths": [
     {
+      "filePath": "<dir>/node_modules/protato/plugin/assets/images",
+      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/images",
+    },
+    {
+      "filePath": "<dir>/node_modules/protato/plugin/assets/javascripts/kit.js",
+      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js",
+    },
+    {
+      "filePath": "<dir>/node_modules/protato/plugin/assets/javascripts/auto-store-data.js",
+      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/auto-store-data.js",
+    },
+    {
       "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk/assets",
       "serverPath": "/plugin-assets/govuk-frontend/dist/govuk/assets",
     },
@@ -18,18 +30,6 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
     {
       "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk-prototype-kit/init.js",
       "serverPath": "/plugin-assets/govuk-frontend/dist/govuk-prototype-kit/init.js",
-    },
-    {
-      "filePath": "<dir>/node_modules/protato/plugin/assets/images",
-      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/images",
-    },
-    {
-      "filePath": "<dir>/node_modules/protato/plugin/assets/javascripts/kit.js",
-      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js",
-    },
-    {
-      "filePath": "<dir>/node_modules/protato/plugin/assets/javascripts/auto-store-data.js",
-      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/auto-store-data.js",
     },
   ],
   "baseLayoutPaths": [
@@ -46,8 +46,8 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
     "<dir>/node_modules/protato/plugin/filters.js",
   ],
   "functionPaths": [
-    "<dir>/node_modules/govuk-frontend/dist/govuk-prototype-kit/functions.js",
     "<dir>/node_modules/protato/plugin/functions.js",
+    "<dir>/node_modules/govuk-frontend/dist/govuk-prototype-kit/functions.js",
   ],
   "macros": [
     {
@@ -197,12 +197,17 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
   ],
   "sassPaths": [
     "node_modules/govuk-frontend/dist/govuk-prototype-kit/init.scss",
-    "node_modules/protato/plugin/assets/sass/legacy-patterns.scss",
     "node_modules/@govuk-prototype-kit/common-templates/sass/_contents-list.scss",
     "node_modules/@govuk-prototype-kit/common-templates/sass/_mainstream-guide.scss",
     "node_modules/@govuk-prototype-kit/common-templates/sass/_related-items.scss",
   ],
   "scriptPaths": [
+    {
+      "src": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js",
+    },
+    {
+      "src": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/auto-store-data.js",
+    },
     {
       "src": "/plugin-assets/govuk-frontend/dist/govuk/govuk-frontend.min.js",
       "type": "module",
@@ -210,12 +215,6 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
     {
       "src": "/plugin-assets/govuk-frontend/dist/govuk-prototype-kit/init.js",
       "type": "module",
-    },
-    {
-      "src": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js",
-    },
-    {
-      "src": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/auto-store-data.js",
     },
   ],
   "templatesByPlugin": [
@@ -272,11 +271,9 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
       ],
     },
   ],
-  "tmpViewPaths": [
-    "<dir>/.tmp/views/protato/plugin/views",
-  ],
   "viewPaths": [
     "<dir>/node_modules/govuk-frontend/dist",
+    "<dir>/.tmp/views/protato/plugin/views",
     "<dir>/node_modules/protato/plugin/views",
   ],
 }

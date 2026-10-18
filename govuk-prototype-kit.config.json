@@ -3,7 +3,6 @@
 		"description": "Quickly make interactive, accessible and realistic prototypes."
 	},
 	"assets": ["/plugin/assets/images"],
-	"sass": ["/plugin/assets/sass/legacy-patterns.scss"],
 	"scripts": [
 		"/plugin/assets/javascripts/kit.js",
 		"/plugin/assets/javascripts/auto-store-data.js"

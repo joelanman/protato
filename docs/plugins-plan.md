@@ -45,8 +45,8 @@ The plan for plugin support in Protato and the plugins management UI.
 - **Phase 1: Fix existing plugin loading & Windows support (T1–T4)** *(detailed below)*
   - ✅ T1: Real-file test harness for plugins
   - ✅ T2: Normalise plugin configs on read
-  - ⬜ T3: Plugin order and view precedence *(next)*
-  - ⬜ T4: Windows CI and Windows-safe paths
+  - ✅ T3: Plugin order and view precedence
+  - ⬜ T4: Windows CI and Windows-safe paths *(next)*
 - **Phase 2: Missing kit plugin compatibility (T5–T9)** *(to be detailed after Phase 1)*
   - T5: Runtime API gaps (`requests.serveDirectory`, `setupRouter` check, `addFunction` `renderAsHtml`, safe `getFilter`/`getFunction`)
   - T6: Require hook (`govuk-prototype-kit/lib/config` without `.js`, quiet logging, clear error on unsupported subpaths)
@@ -80,24 +80,9 @@ Work through T1 to T4 one at a time, stopping for review after each task.
 
 ---
 
-### T3 — Plugin order and view precedence
+### ✅ T3 — Plugin order and view precedence (Done)
 
-**Why:**
-- `getPlugins()` currently uses `package.json` key order with `govuk-frontend` moved first, rather than D6 (`protato`, then `govuk-frontend`, then alphabetical by package name).
-- `lib/app.js` currently searches plugin views in forward plugin order, so earlier plugins override later plugins (breaking D5), and puts all `.tmp/views` paths before all regular plugin views (`[paths.views, ...plugins.getTmpViewPaths(), ...plugins.getViewPaths()]`) rather than each plugin's shadow layouts immediately preceding its own views.
-
-**Files:** `lib/plugins.js`, `lib/app.js`, tests
-
-**Steps**
-1. In `lib/plugins.js`, order plugins by D6: `protato`, `govuk-frontend`, then the rest sorted by `packageName` (code-point order).
-2. Build the plugin view search paths in `lib/plugins.js` so that for plugins in **reverse** plugin order, each plugin's `.tmp/views` path(s) (if it has `importNunjucksMacrosInto`) come immediately before its own `nunjucksPaths`. (If `getTmpViewPaths` is no longer needed as a separate export by `lib/app.js`, fold it into `getViewPaths` or keep it clear and simple.)
-3. In `lib/app.js`, build the Nunjucks view list as:
-   1. `app/views` (project always wins)
-   2. Plugin view paths from step 2
-   3. In development, the `node_modules` fallback last
-4. Document the precedence rule in a comment where the view list is built, citing D5 and D6.
-
-**Done when:** Tests verify that project views beat plugin views, later plugins beat earlier plugins, and shadow layouts beat originals. Update the T1 snapshot for the new ordering. **Stop for review.**
+**Files:** `lib/plugins.js`, `lib/app.js`, `lib/plugins.test.js`, `lib/app.test.js`
 
 ---
 
