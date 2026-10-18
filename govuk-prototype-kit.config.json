@@ -2,13 +2,15 @@
 	"meta": {
 		"description": "Quickly make interactive, accessible and realistic prototypes."
 	},
+	"assets": ["/plugin/assets/images"],
 	"sass": ["/plugin/assets/sass/legacy-patterns.scss"],
 	"scripts": [
 		"/plugin/assets/javascripts/kit.js",
 		"/plugin/assets/javascripts/auto-store-data.js"
 	],
 	"importNunjucksMacrosInto": [
-		"/plugin/views/govuk-prototype-kit/layouts/govuk-branded.njk"
+		"/plugin/views/govuk-prototype-kit/layouts/govuk-branded.njk",
+		"/plugin/views/govuk-prototype-kit/layouts/unbranded.html"
 	],
 	"nunjucksFilters": ["/plugin/filters.js"],
 	"nunjucksFunctions": ["/plugin/functions.js"],

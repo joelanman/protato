@@ -1,0 +1,16 @@
+{#
+  Unbranded layout: no GOV.UK header or footer, and the unbranded font stack.
+  The unbranded stylesheet is generated from application.css by lib/build.js.
+#}
+{% extends "govuk-prototype-kit/layouts/govuk-branded.njk" %}
+
+{% block headIcons %}
+  <link rel="shortcut icon" href="/plugin-assets/govuk-prototype-kit/plugin/assets/images/unbranded.ico" type="image/x-icon" />
+{% endblock %}
+
+{% block stylesheets %}
+  <link href="/public/stylesheets/unbranded.css" media="all" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block header %}{% endblock %}
+{% block footer %}{% endblock %}

@@ -114,6 +114,16 @@ describe('Server', () => {
 			const response5 = await fetch(root + '/?page=1', { method: 'POST' })
 			expect(response5.redirected).toBe(true)
 			expect(response5.url).toBe(root + '/?page=1')
+
+			const unbrandedIconResponse = await fetch(
+				root + '/plugin-assets/govuk-prototype-kit/plugin/assets/images/unbranded.ico'
+			)
+			expect(unbrandedIconResponse.status).toBe(200)
+
+			const kitScriptResponse = await fetch(
+				root + '/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js'
+			)
+			expect(kitScriptResponse.status).toBe(200)
 		}, 5000)
 
 		it('compiles custom sass using pkg: URLs into its own CSS file', async () => {
