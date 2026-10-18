@@ -23,6 +23,8 @@ function getEnv() {
 	nunjucksEnv = nunjucks.configure(views, nunjucksConfig)
 
 	nunjucksEnv.addGlobal('assetPath', '/manage-prototype/govuk-frontend/dist/govuk/assets')
+	nunjucksEnv.addGlobal('serviceName', config.serviceName)
+	nunjucksEnv.addGlobal('isDevelopment', config.env === 'development')
 
 	return nunjucksEnv
 }

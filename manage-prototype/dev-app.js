@@ -22,6 +22,10 @@ const getManagePrototypeDevApp = () => {
 		response.render('home')
 	})
 
+	app.get('/plugins', (request, response) => {
+		response.render('plugins', { pageName: 'Plugins' })
+	})
+
 	// live reload
 	app.get('/livereload', livereload.getRoute())
 

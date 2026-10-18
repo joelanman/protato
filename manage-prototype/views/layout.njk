@@ -1,12 +1,72 @@
+{% from "govuk/components/footer/macro.njk" import govukFooter %}
+{% from "govuk/components/header/macro.njk" import govukHeader %}
+{% from "govuk/components/service-navigation/macro.njk" import govukServiceNavigation %}
+
 {% extends "govuk/template.njk" -%}
+
+{% block pageTitle %}
+  {%- if pageName %}{{ pageName }} - {% endif %}Manage your prototype{% if serviceName %} - {{ serviceName }}{% endif %} - GOV.UK Prototype Kit
+{% endblock %}
 
 {% block head %}
   <link href="/manage-prototype/public/stylesheets/manage-prototype.css" rel="stylesheet" type="text/css" />
 {% endblock %}
 
-{% block header %}{% endblock %}
-{% block footer %}{% endblock %}
-{% block beforeContent %}{% endblock %}
+{% block header %}
+  {{ govukHeader({
+    productName: "Prototype Kit"
+  }) }}
+  {% if isDevelopment %}
+    {{ govukServiceNavigation({
+      serviceName: serviceName,
+      serviceUrl: '/',
+      navigation: [
+        {
+          text: "Manage your prototype",
+          href: "/manage-prototype"
+        },
+        {
+          text: "Plugins",
+          href: "/manage-prototype/plugins"
+        }
+      ]
+    }) }}
+  {% elif serviceName and serviceName | trim %}
+    {{ govukServiceNavigation({
+      serviceName: serviceName,
+      serviceUrl: '/'
+    }) }}
+  {% endif %}
+{% endblock %}
+
+{% if isDevelopment %}
+  {% set footerItems = [
+    {
+      href: "/manage-prototype",
+      text: "Manage your prototype"
+    },
+    {
+      href: "/manage-prototype/clear-data",
+      text: "Clear data"
+    }
+  ] %}
+{% else %}
+  {% set footerItems = [
+    {
+      href: "/manage-prototype/clear-data",
+      text: "Clear data"
+    }
+  ] %}
+{% endif %}
+
+{% block footer %}
+  {{ govukFooter({
+    meta: {
+      items: footerItems,
+      visuallyHiddenTitle: "Footer links"
+    }
+  }) }}
+{% endblock %}
 
 {% block bodyEnd %}
   {% block scripts %}

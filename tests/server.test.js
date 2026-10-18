@@ -84,13 +84,17 @@ describe('Server', () => {
 			expect(response.status).toBe(500)
 		}, 5000)
 
-		it('redirects to password page', async () => {
+		it('redirects to password page without dead management links', async () => {
 			console.log('prod test')
 			await startServer({ args: ['start'], env: { PASSWORD: 'test' } })
 
 			const response = await fetch(root)
 			expect(response.redirected).toBe(true)
 			expect(response.url).toBe(root + '/manage-prototype/password?returnURL=%2F')
+
+			const html = await response.text()
+			expect(html).not.toContain('/manage-prototype/templates')
+			expect(html).not.toContain('/manage-prototype/plugins')
 		}, 5000)
 	})
 
@@ -124,6 +128,9 @@ describe('Server', () => {
 				root + '/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js'
 			)
 			expect(kitScriptResponse.status).toBe(200)
+
+			const homeResponse = await fetch(root + '/')
+			expect(homeResponse.status).toBe(200)
 
 			fs.writeFileSync(path.join(testDir, 'app/views/auto-render-test.html'), 'auto rendered page')
 			const autoRenderResponse = await fetch(root + '/auto-render-test')

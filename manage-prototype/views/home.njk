@@ -2,10 +2,30 @@
 
 {% block content %}
 
-    <h1 class="govuk-heading-l">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds-from-desktop">
+      <h1 class="govuk-heading-l">
         Manage your prototype
-    </h1>
+      </h1>
 
-    <a href="/manage-prototype/clear-data">Clear session data</a>
+      <p class="govuk-body">
+        <a href="https://prototype-kit.service.gov.uk/">Prototype Kit website</a>
+        for guidance and tutorials
+      </p>
+
+      <h2 class="govuk-heading-m">
+        <a href="/manage-prototype/plugins">Plugins</a>
+      </h2>
+      <p class="govuk-body">
+        Plugins provide you with new components, styles and other features
+      </p>
+
+      <p class="govuk-body">
+        <a class="govuk-heading-m" href="/manage-prototype/clear-data">
+          Clear session data
+        </a>
+      </p>
+    </div>
+  </div>
 
 {% endblock %}
