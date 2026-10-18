@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-const MANIFEST_FILE = 'govuk-prototype-kit.config.json'
+const CONFIG_FILE = 'govuk-prototype-kit.config.json'
 
 function writeFile(dir, filePath, contents) {
 	const fullPath = path.join(dir, filePath)
@@ -26,17 +26,21 @@ function writeFiles(dir, files = {}) {
  * @param {Array<object>} [options.plugins] plugins installed in node_modules:
  *   { packageName, version?, config?, packageJson?, files? }. A config that is a
  *   string is written as-is (e.g. invalid JSON), an undefined config means no
- *   manifest file is written.
+ *   config file is written.
  * @param {object} [options.files] project files, relative to the project root
  * @returns {{ dir: string, cleanup: () => void }}
  */
 export function createPluginProject({ dependencies, plugins = [], files = {} } = {}) {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'protato-plugin-project-'))
 
-	writeFile(dir, 'package.json', {
-		dependencies:
-			dependencies ?? Object.fromEntries(plugins.map((plugin) => [plugin.packageName, plugin.version ?? '1.0.0']))
-	})
+	if (!dependencies) {
+		dependencies = {}
+		for (const plugin of plugins) {
+			dependencies[plugin.packageName] = plugin.version ?? '1.0.0'
+		}
+	}
+
+	writeFile(dir, 'package.json', { dependencies })
 	writeFiles(dir, files)
 
 	for (const { packageName, version = '1.0.0', config, packageJson = {}, files: pluginFiles = {} } of plugins) {
@@ -45,7 +49,7 @@ export function createPluginProject({ dependencies, plugins = [], files = {} } =
 		writeFile(dir, path.join(packageDir, 'package.json'), { name: packageName, version, ...packageJson })
 
 		if (config !== undefined) {
-			writeFile(dir, path.join(packageDir, MANIFEST_FILE), config)
+			writeFile(dir, path.join(packageDir, CONFIG_FILE), config)
 		}
 
 		writeFiles(path.join(dir, packageDir), pluginFiles)

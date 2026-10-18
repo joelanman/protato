@@ -32,18 +32,25 @@ The plan for plugin support in Protato and the plugins management UI.
   - Use `path.join` only for filesystem paths passed to `fs`, `require`, `import()` or `express.static`.
   - Keep `/` for URLs (`/plugin-assets/<pkg>/<path>`), Nunjucks template names, and manifest comparisons.
   - For Sass `@import` strings, backslashes break CSS parsing: use `pathToFileURL(absolutePath).href` for absolute paths and `/` for plugin paths.
-- **Code:** ESM, tabs and Biome (`npm run lint`). Match surrounding code. Warnings use `console.warn` starting with `Plugin <packageName>:`.
-- **Tests:** Build temp projects with `createPluginProject()` (T1) and mock `getPaths()` to point at the temp directory. Do not mock `node:fs`.
+- **Code:** ESM, tabs and Biome (`npm run lint`). Match surrounding code:
+  - Keep logic simple, explicit and flat—prefer plain `for...of` loops over dense functional chains (like `Object.fromEntries(Object.entries(...).map(...))`).
+  - Use consistent naming: call `govuk-prototype-kit.config.json` `config` (not `manifest`), and call npm package names `packageName` (not `pluginName` or `dependency`).
+  - Warnings use `console.warn` starting with `Plugin <packageName>:`.
+- **Tests:** Build temp projects with `createPluginProject()` (`setupProject()` in `lib/plugins.test.js`) and mock `getPaths()` to point at the temp directory. Do not mock `node:fs`.
 
 ---
 
 ## 3. Phases overview
 
 - **Phase 1: Fix existing plugin loading & Windows support (T1–T4)** *(detailed below)*
+  - ✅ T1: Real-file test harness for plugins
+  - ✅ T2: Normalise plugin configs on read
+  - ⬜ T3: Plugin order and view precedence *(next)*
+  - ⬜ T4: Windows CI and Windows-safe paths
 - **Phase 2: Missing kit plugin compatibility (T5–T9)** *(to be detailed after Phase 1)*
   - T5: Runtime API gaps (`requests.serveDirectory`, `setupRouter` check, `addFunction` `renderAsHtml`, safe `getFilter`/`getFunction`)
   - T6: Require hook (`govuk-prototype-kit/lib/config` without `.js`, quiet logging, clear error on unsupported subpaths)
-  - T7: `stylesheets` manifest key, `/extension-assets` alias, `pluginConfig`/`extensionConfig` locals, kit Nunjucks includes
+  - T7: `stylesheets` config key, `/extension-assets` alias, `pluginConfig`/`extensionConfig` locals, kit Nunjucks includes
   - T8: Proxy plugins (`jquery`, `notifications-node-client`, `app/plugin-proxy.json`)
   - T9: `pluginVersionSatisfies` in `app.locals`
 - **Phase 3: Plugins management UI (T10–T16)** *(to be detailed after Phase 2)*
@@ -61,43 +68,15 @@ The plan for plugin support in Protato and the plugins management UI.
 
 Work through T1 to T4 one at a time, stopping for review after each task.
 
-### T1 — Real-file test harness for plugins
+### ✅ T1 — Real-file test harness for plugins (Done)
 
-**Why:** `lib/plugins.test.js` currently mocks `node:fs` with 69 `mockReturnValueOnce` calls tied to the exact order files are read. Any change to `lib/plugins.js` breaks the tests.
-
-**Files:** `tests/helpers/plugin-project.js` (new), `lib/plugins.test.js` (rewrite)
-
-**Steps**
-1. Write `createPluginProject({ dependencies, plugins, files })`. It creates a temp directory with `package.json`, `node_modules/<pkg>/{package.json,govuk-prototype-kit.config.json,...files}` and any project files, and returns `{ dir, cleanup }`. It must support scoped names (`@scope/name`).
-2. Rewrite `lib/plugins.test.js` to use `createPluginProject`, mocking only `getPaths()` to point at `dir`. Keep every behaviour the current tests check.
-3. Add a snapshot test for a project with Protato's own manifest plus `govuk-frontend` and `@govuk-prototype-kit/common-templates` (copying manifests from `starter/node_modules`). Snapshot the output of every getter, with paths normalised relative to `dir` using `/`.
-
-**Done when:** `lib/plugins.test.js` does not mock `node:fs`, `npm test` passes, and no production code has changed. **Stop for review.**
+**Files:** `tests/helpers/plugin-project.js`, `lib/plugins.test.js`, `lib/__snapshots__/plugins.test.js.snap`
 
 ---
 
-### T2 — Normalise manifests on read
-
-**Why:** Currently:
-- Iterating over a string manifest value (e.g. `"scripts": "/foo.js"`) iterates its characters.
-- A `{ path }` script object without `type` produces `src: "/plugin-assets/pkg[object Object]"`.
-- Manifest paths without a leading `/` produce malformed URLs.
-- `getTmpViewPaths` crashes if a plugin has `importNunjucksMacrosInto` without `nunjucksPaths`.
-- Invalid JSON in a manifest crashes startup instead of warning and skipping (D7).
+### ✅ T2 — Normalise plugin configs on read (Done)
 
 **Files:** `lib/plugins.js`, `lib/plugins.test.js`
-
-**Steps**
-1. In `getPlugins()`, read each manifest once into a normalised shape:
-   - Every list key becomes an array (`[].concat(value ?? [])`).
-   - `scripts` entries become `{ path, type? }`.
-   - Ensure manifest paths have a leading `/`.
-   - Getters only read the normalised shape.
-2. Wrap the manifest and `package.json` reads in `try/catch`. On failure, `console.warn('Plugin <pkg>: could not read <file>: <message>')` and skip the plugin.
-3. Guard `getTmpViewPaths` so plugins without `nunjucksPaths` return no tmp view paths instead of crashing.
-4. Share a helper between `getAssetPaths` and `getScriptPaths` for converting scripts into asset paths.
-
-**Done when:** Tests pass for string manifest values, `{ path }` script objects, paths without leading `/`, `importNunjucksMacrosInto` without `nunjucksPaths`, and invalid JSON manifests. The T1 snapshot remains unchanged. **Stop for review.**
 
 ---
 
@@ -105,17 +84,18 @@ Work through T1 to T4 one at a time, stopping for review after each task.
 
 **Why:**
 - `getPlugins()` currently uses `package.json` key order with `govuk-frontend` moved first, rather than D6 (`protato`, then `govuk-frontend`, then alphabetical by package name).
-- `lib/app.js` currently searches plugin views in forward plugin order, so earlier plugins override later plugins (breaking D5), and all tmp views come before all regular plugin views rather than each plugin's shadow layouts immediately preceding its own views.
+- `lib/app.js` currently searches plugin views in forward plugin order, so earlier plugins override later plugins (breaking D5), and puts all `.tmp/views` paths before all regular plugin views (`[paths.views, ...plugins.getTmpViewPaths(), ...plugins.getViewPaths()]`) rather than each plugin's shadow layouts immediately preceding its own views.
 
 **Files:** `lib/plugins.js`, `lib/app.js`, tests
 
 **Steps**
-1. In `lib/plugins.js`, order plugins by D6: `protato`, `govuk-frontend`, then the rest sorted by package name (code-point order).
-2. Build the Nunjucks view search path list so the order is:
+1. In `lib/plugins.js`, order plugins by D6: `protato`, `govuk-frontend`, then the rest sorted by `packageName` (code-point order).
+2. Build the plugin view search paths in `lib/plugins.js` so that for plugins in **reverse** plugin order, each plugin's `.tmp/views` path(s) (if it has `importNunjucksMacrosInto`) come immediately before its own `nunjucksPaths`. (If `getTmpViewPaths` is no longer needed as a separate export by `lib/app.js`, fold it into `getViewPaths` or keep it clear and simple.)
+3. In `lib/app.js`, build the Nunjucks view list as:
    1. `app/views` (project always wins)
-   2. Plugins in **reverse** plugin order, with each plugin's tmp shadow layout path(s) immediately before its own `nunjucksPaths`
+   2. Plugin view paths from step 2
    3. In development, the `node_modules` fallback last
-3. Document the precedence rule in a comment where the view list is built, citing D5 and D6.
+4. Document the precedence rule in a comment where the view list is built, citing D5 and D6.
 
 **Done when:** Tests verify that project views beat plugin views, later plugins beat earlier plugins, and shadow layouts beat originals. Update the T1 snapshot for the new ordering. **Stop for review.**
 
