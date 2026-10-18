@@ -1,0 +1,283 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Plugins > a real project with protato, govuk-frontend and common templates > loads every plugin getter 1`] = `
+{
+  "assetPaths": [
+    {
+      "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk/assets",
+      "serverPath": "/plugin-assets/govuk-frontend/dist/govuk/assets",
+    },
+    {
+      "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk/govuk-frontend.min.js.map",
+      "serverPath": "/plugin-assets/govuk-frontend/dist/govuk/govuk-frontend.min.js.map",
+    },
+    {
+      "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk/govuk-frontend.min.js",
+      "serverPath": "/plugin-assets/govuk-frontend/dist/govuk/govuk-frontend.min.js",
+    },
+    {
+      "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk-prototype-kit/init.js",
+      "serverPath": "/plugin-assets/govuk-frontend/dist/govuk-prototype-kit/init.js",
+    },
+    {
+      "filePath": "<dir>/node_modules/protato/plugin/assets/images",
+      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/images",
+    },
+    {
+      "filePath": "<dir>/node_modules/protato/plugin/assets/javascripts/kit.js",
+      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js",
+    },
+    {
+      "filePath": "<dir>/node_modules/protato/plugin/assets/javascripts/auto-store-data.js",
+      "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/auto-store-data.js",
+    },
+  ],
+  "baseLayoutPaths": [
+    {
+      "destination": "<dir>/.tmp/views/protato/plugin/views/govuk-prototype-kit/layouts/govuk-branded.njk",
+      "source": "<dir>/node_modules/protato/plugin/views/govuk-prototype-kit/layouts/govuk-branded.njk",
+    },
+    {
+      "destination": "<dir>/.tmp/views/protato/plugin/views/govuk-prototype-kit/layouts/unbranded.html",
+      "source": "<dir>/node_modules/protato/plugin/views/govuk-prototype-kit/layouts/unbranded.html",
+    },
+  ],
+  "filterPaths": [
+    "<dir>/node_modules/protato/plugin/filters.js",
+  ],
+  "functionPaths": [
+    "<dir>/node_modules/govuk-frontend/dist/govuk-prototype-kit/functions.js",
+    "<dir>/node_modules/protato/plugin/functions.js",
+  ],
+  "macros": [
+    {
+      "name": "govukAccordion",
+      "path": "govuk/components/accordion/macro.njk",
+    },
+    {
+      "name": "govukBackLink",
+      "path": "govuk/components/back-link/macro.njk",
+    },
+    {
+      "name": "govukBreadcrumbs",
+      "path": "govuk/components/breadcrumbs/macro.njk",
+    },
+    {
+      "name": "govukButton",
+      "path": "govuk/components/button/macro.njk",
+    },
+    {
+      "name": "govukCharacterCount",
+      "path": "govuk/components/character-count/macro.njk",
+    },
+    {
+      "name": "govukCheckboxes",
+      "path": "govuk/components/checkboxes/macro.njk",
+    },
+    {
+      "name": "govukCookieBanner",
+      "path": "govuk/components/cookie-banner/macro.njk",
+    },
+    {
+      "name": "govukDateInput",
+      "path": "govuk/components/date-input/macro.njk",
+    },
+    {
+      "name": "govukDetails",
+      "path": "govuk/components/details/macro.njk",
+    },
+    {
+      "name": "govukErrorMessage",
+      "path": "govuk/components/error-message/macro.njk",
+    },
+    {
+      "name": "govukErrorSummary",
+      "path": "govuk/components/error-summary/macro.njk",
+    },
+    {
+      "name": "govukExitThisPage",
+      "path": "govuk/components/exit-this-page/macro.njk",
+    },
+    {
+      "name": "govukFieldset",
+      "path": "govuk/components/fieldset/macro.njk",
+    },
+    {
+      "name": "govukFileUpload",
+      "path": "govuk/components/file-upload/macro.njk",
+    },
+    {
+      "name": "govukFooter",
+      "path": "govuk/components/footer/macro.njk",
+    },
+    {
+      "name": "govukHeader",
+      "path": "govuk/components/header/macro.njk",
+    },
+    {
+      "name": "govukHint",
+      "path": "govuk/components/hint/macro.njk",
+    },
+    {
+      "name": "govukInput",
+      "path": "govuk/components/input/macro.njk",
+    },
+    {
+      "name": "govukInsetText",
+      "path": "govuk/components/inset-text/macro.njk",
+    },
+    {
+      "name": "govukLabel",
+      "path": "govuk/components/label/macro.njk",
+    },
+    {
+      "name": "govukNotificationBanner",
+      "path": "govuk/components/notification-banner/macro.njk",
+    },
+    {
+      "name": "govukPagination",
+      "path": "govuk/components/pagination/macro.njk",
+    },
+    {
+      "name": "govukPanel",
+      "path": "govuk/components/panel/macro.njk",
+    },
+    {
+      "name": "govukPasswordInput",
+      "path": "govuk/components/password-input/macro.njk",
+    },
+    {
+      "name": "govukPhaseBanner",
+      "path": "govuk/components/phase-banner/macro.njk",
+    },
+    {
+      "name": "govukRadios",
+      "path": "govuk/components/radios/macro.njk",
+    },
+    {
+      "name": "govukSelect",
+      "path": "govuk/components/select/macro.njk",
+    },
+    {
+      "name": "govukServiceNavigation",
+      "path": "govuk/components/service-navigation/macro.njk",
+    },
+    {
+      "name": "govukSkipLink",
+      "path": "govuk/components/skip-link/macro.njk",
+    },
+    {
+      "name": "govukSummaryList",
+      "path": "govuk/components/summary-list/macro.njk",
+    },
+    {
+      "name": "govukTable",
+      "path": "govuk/components/table/macro.njk",
+    },
+    {
+      "name": "govukTabs",
+      "path": "govuk/components/tabs/macro.njk",
+    },
+    {
+      "name": "govukTag",
+      "path": "govuk/components/tag/macro.njk",
+    },
+    {
+      "name": "govukTaskList",
+      "path": "govuk/components/task-list/macro.njk",
+    },
+    {
+      "name": "govukTextarea",
+      "path": "govuk/components/textarea/macro.njk",
+    },
+    {
+      "name": "govukWarningText",
+      "path": "govuk/components/warning-text/macro.njk",
+    },
+  ],
+  "sassPaths": [
+    "node_modules/govuk-frontend/dist/govuk-prototype-kit/init.scss",
+    "node_modules/protato/plugin/assets/sass/legacy-patterns.scss",
+    "node_modules/@govuk-prototype-kit/common-templates/sass/_contents-list.scss",
+    "node_modules/@govuk-prototype-kit/common-templates/sass/_mainstream-guide.scss",
+    "node_modules/@govuk-prototype-kit/common-templates/sass/_related-items.scss",
+  ],
+  "scriptPaths": [
+    {
+      "src": "/plugin-assets/govuk-frontend/dist/govuk/govuk-frontend.min.js",
+      "type": "module",
+    },
+    {
+      "src": "/plugin-assets/govuk-frontend/dist/govuk-prototype-kit/init.js",
+      "type": "module",
+    },
+    {
+      "src": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js",
+    },
+    {
+      "src": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/auto-store-data.js",
+    },
+  ],
+  "templatesByPlugin": [
+    {
+      "name": "Common Templates",
+      "packageName": "@govuk-prototype-kit/common-templates",
+      "publisher": "GOV.UK Prototype Kit",
+      "templates": [
+        {
+          "name": "Blank GOV.UK page",
+          "path": "/templates/blank-govuk.html",
+          "type": "nunjucks",
+        },
+        {
+          "name": "Blank unbranded page",
+          "path": "/templates/blank-unbranded.html",
+          "type": "nunjucks",
+        },
+        {
+          "name": "Start page",
+          "path": "/templates/start.html",
+          "type": "nunjucks",
+        },
+        {
+          "name": "Question page",
+          "path": "/templates/question.html",
+          "type": "nunjucks",
+        },
+        {
+          "name": "Content page",
+          "path": "/templates/content.html",
+          "type": "nunjucks",
+        },
+        {
+          "name": "Check answers page",
+          "path": "/templates/check-answers.html",
+          "type": "nunjucks",
+        },
+        {
+          "name": "Confirmation page",
+          "path": "/templates/confirmation.html",
+          "type": "nunjucks",
+        },
+        {
+          "name": "Mainstream guide page",
+          "path": "/templates/mainstream-guide.html",
+          "type": "nunjucks",
+        },
+        {
+          "name": "Task list page (for GOV.UK Frontend >=5.0.0)",
+          "path": "/templates/task-list.html",
+          "type": "nunjucks",
+        },
+      ],
+    },
+  ],
+  "tmpViewPaths": [
+    "<dir>/.tmp/views/protato/plugin/views",
+  ],
+  "viewPaths": [
+    "<dir>/node_modules/govuk-frontend/dist",
+    "<dir>/node_modules/protato/plugin/views",
+  ],
+}
+`;
