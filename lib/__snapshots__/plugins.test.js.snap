@@ -217,6 +217,7 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
       "type": "module",
     },
   ],
+  "stylesheetPaths": [],
   "templatesByPlugin": [
     {
       "name": "Common Templates",

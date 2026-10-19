@@ -6,6 +6,9 @@
   {% block meta %}{% endblock %}
   {% block stylesheets %}
     <link href="/public/stylesheets/application.css" rel="stylesheet" type="text/css" />
+    {% for stylesheetUrl in GOVUKPrototypeKit.stylesheets %}
+      <link href="{{ stylesheetUrl }}" rel="stylesheet" type="text/css" />
+    {% endfor %}
   {% endblock %}
 {% endblock %}
 

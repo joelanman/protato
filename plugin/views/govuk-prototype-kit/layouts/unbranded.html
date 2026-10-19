@@ -10,6 +10,9 @@
 
 {% block stylesheets %}
   <link href="/public/stylesheets/unbranded.css" media="all" rel="stylesheet" type="text/css" />
+  {% for stylesheetUrl in GOVUKPrototypeKit.stylesheets %}
+    <link href="{{ stylesheetUrl }}" rel="stylesheet" type="text/css" />
+  {% endfor %}
 {% endblock %}
 
 {% block header %}{% endblock %}
