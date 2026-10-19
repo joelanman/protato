@@ -57,7 +57,7 @@ The plan for plugin support in Protato and the plugins management UI.
   - ✅ T10: Fixed Windows-compatible npm commands (lifecycle coordinated in T12)
   - T11: Pure install/update/uninstall planner (`pluginDependencies` and dependents) ✅
   - T12: Coordinate plugin updates in the dev server ✅
-  - T13: Extend `/plugins` with install/update/uninstall confirmation and actions
+  - T13: Extend `/plugins` with install/update/uninstall confirmation and actions ✅
   - T14: Watching `package.json` for CLI installs
 
 ---
@@ -353,7 +353,7 @@ await runPluginNpm({
 - `lib/watch.js` exports `setBuildResult(result)` and skips watcher actions while `devServer.updatingPlugins` is `true`.
 - `lib/build.js` clears `.tmp/views` in `writeBaseLayouts()`.
 
-### T13 — Add plugin actions and confirmation
+### ✅ T13 — Add plugin actions and confirmation (Done)
 
 **Files:** existing `manage-prototype/routes/plugins.js` and tests, existing plugin listing view plus confirmation view.
 
@@ -371,6 +371,13 @@ await runPluginNpm({
 - List/confirmation/success/failure rendering; install/update/uninstall; protected, unknown and local packages; offline and stale-plan messages.
 - Invalid action/name/token, cross-origin POST, duplicate submission/busy state and escaped metadata/npm output. GET requests never mutate.
 - Production cannot invoke the endpoints. Real browser-facing flow against fake registry/npm fixtures verifies that the management UI survives the prototype restart and shows the resulting installed state.
+
+**Done**
+
+- `manage-prototype/routes/plugins.js` remains a plain Express router (`export default router`) that imports `devServer` and the plugin registry directly—no dependency-injection changes in `lib/dev-server.js` or `manage-prototype/dev-app.js`, and no separate `plugin-data.js` module.
+- `GET /plugins` extends the existing list with `latestVersion`, update availability, and install/update/uninstall actions. Registry errors become per-plugin diagnostics without hiding installed state or uninstall actions.
+- `GET /plugins/confirm` and `POST /plugins/confirm` share `buildActionPlan()` and render `manage-prototype/views/plugin-confirm.njk` for confirmation, blocking problems, and execution errors.
+- `POST /plugins/confirm` checks the form token and origin, re-plans from fresh state, verifies that `expectedChanges` matches the confirmed plan, runs `devServer.updatePlugins()`, and redirects to `/manage-prototype/plugins?updated=1` on success.
 
 ### T14 — Refresh after command-line package changes
 

@@ -4,10 +4,17 @@ import path from 'node:path'
 import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getPaths } from '../../lib/paths.js'
-import { createPluginProject } from '../../tests/helpers/plugin-project.js'
-import { getManagePrototypeDevApp } from '../dev-app.js'
-import pluginRoutes from './plugins.js'
+
+const { mockRegistry } = vi.hoisted(() => ({
+	mockRegistry: {
+		latest: {},
+		configs: {},
+		errors: {},
+		getPackageMetadata: vi.fn(),
+		getUpdateInfo: vi.fn(),
+		getConfig: vi.fn()
+	}
+}))
 
 vi.mock('../../lib/paths.js', () => ({
 	getPaths: vi.fn()
@@ -20,25 +27,41 @@ vi.mock('../../lib/config.js', () => ({
 	}))
 }))
 
-const repoRoot = path.join(import.meta.dirname, '../..')
+vi.mock('../../lib/dev-server.js', () => ({
+	default: {
+		updatePlugins: vi.fn()
+	}
+}))
+
+vi.mock('../../lib/plugin-registry.js', async (importOriginal) => {
+	const actual = await importOriginal()
+	return {
+		...actual,
+		createPluginRegistry: vi.fn(() => mockRegistry)
+	}
+})
+
+import devServer from '../../lib/dev-server.js'
+import { getPaths } from '../../lib/paths.js'
+import { createPluginProject, knownPluginsProject } from '../../tests/helpers/plugin-project.js'
+import { resetRegistryMock } from '../../tests/helpers/plugin-registry-mock.js'
+import { mockProjectPaths } from '../../tests/helpers/project-paths.js'
+import { getManagePrototypeApp } from '../app.js'
+import { getManagePrototypeDevApp } from '../dev-app.js'
+import pluginRoutes from './plugins.js'
 
 let dir
 let projects = []
+
+function configureRegistry(options) {
+	resetRegistryMock(mockRegistry, options)
+}
 
 function setupProject(options = {}) {
 	const project = createPluginProject(options)
 	projects.push(project)
 	dir = project.dir
-	getPaths.mockReturnValue({
-		project: dir,
-		package: repoRoot,
-		managePrototype: {
-			views: path.join(repoRoot, 'manage-prototype', 'views'),
-			govukFrontendViews: path.join(repoRoot, 'node_modules', 'govuk-frontend', 'dist'),
-			public: path.join(repoRoot, 'manage-prototype', 'public'),
-			govukFrontend: path.join(repoRoot, 'node_modules', 'govuk-frontend')
-		}
-	})
+	getPaths.mockReturnValue(mockProjectPaths({ projectDir: dir }))
 	return project
 }
 
@@ -52,6 +75,7 @@ function createApp() {
 	const app = express()
 	const renders = []
 
+	app.use(express.urlencoded({ extended: true }))
 	app.use((req, response, next) => {
 		response.render = (view, model) => {
 			renders.push({ view, model })
@@ -65,19 +89,16 @@ function createApp() {
 	return { app, renders }
 }
 
-async function getPageModel() {
-	const { app, renders } = createApp()
-	const response = await request(app).get('/manage-prototype/plugins')
-
-	expect(response.status).toBe(200)
-	expect(renders).toHaveLength(1)
-
-	return renders[0].model
+function createDevApp() {
+	const app = express()
+	app.use('/manage-prototype', getManagePrototypeDevApp())
+	return app
 }
 
 describe('plugins management route', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
+		configureRegistry()
 	})
 
 	afterEach(() => {
@@ -90,301 +111,8 @@ describe('plugins management route', () => {
 		vi.unstubAllGlobals()
 	})
 
-	describe('page data', () => {
-		it('lists protected, available and installed plugins in plugin order', async () => {
-			setupProject({
-				dependencies: {
-					protato: '0.1.0',
-					'govuk-frontend': '5.11.2',
-					'@govuk-prototype-kit/common-templates': '2.0.1',
-					'hmrc-frontend': '^6.0.0'
-				},
-				plugins: [
-					{ packageName: 'protato', version: '0.1.0', config: {} },
-					{ packageName: 'govuk-frontend', version: '5.11.2', config: {} },
-					{ packageName: '@govuk-prototype-kit/common-templates', version: '2.0.1', config: {} },
-					{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }
-				]
-			})
-
-			const page = await getPageModel()
-
-			expect(page.diagnostics).toEqual([])
-			expect(page.plugins.map((plugin) => plugin.packageName)).toEqual([
-				'protato',
-				'govuk-frontend',
-				'@govuk-prototype-kit/common-templates',
-				'@govuk-prototype-kit/step-by-step',
-				'@ministryofjustice/frontend',
-				'hmrc-frontend'
-			])
-
-			const protato = getPlugin(page, 'protato')
-			expect(protato.installedVersion).toBe('0.1.0')
-			expect(protato.protectedPackage).toBe(true)
-			expect(protato.readOnly).toBe(true)
-
-			const govukFrontend = getPlugin(page, 'govuk-frontend')
-			expect(govukFrontend.name).toBe('GOV.UK Frontend')
-			expect(govukFrontend.declaration).toBe('5.11.2')
-			expect(govukFrontend.installedVersion).toBe('5.11.2')
-			expect(govukFrontend.installSource).toBe('registry')
-			expect(govukFrontend.known).toBe(true)
-			expect(govukFrontend.protectedPackage).toBe(true)
-			expect(govukFrontend.readOnly).toBe(false)
-			expect(govukFrontend.dependenciesKnown).toBe(true)
-
-			const stepByStep = getPlugin(page, '@govuk-prototype-kit/step-by-step')
-			expect(stepByStep.declaration).toBeUndefined()
-			expect(stepByStep.installedVersion).toBeUndefined()
-			expect(stepByStep.installSource).toBeUndefined()
-			expect(stepByStep.known).toBe(true)
-			expect(stepByStep.readOnly).toBe(false)
-			expect(stepByStep.diagnostics).toEqual([])
-		})
-
-		it('uses the existing display name formatter', async () => {
-			setupProject({})
-
-			const commonTemplates = getPlugin(await getPageModel(), '@govuk-prototype-kit/common-templates')
-
-			expect({ name: commonTemplates.name, publisher: commonTemplates.publisher }).toEqual({
-				name: 'Common Templates',
-				publisher: 'GOV.UK Prototype Kit'
-			})
-		})
-
-		it('shows installed unknown plugins as read-only and hides config-less dependencies', async () => {
-			setupProject({
-				dependencies: {
-					'govuk-frontend': '5.11.2',
-					'unknown-plugin': '1.0.0',
-					'ordinary-dependency': '1.0.0'
-				},
-				plugins: [
-					{ packageName: 'govuk-frontend', version: '5.11.2', config: {} },
-					{ packageName: 'unknown-plugin', version: '1.0.0', config: { scripts: ['/plugin.js'] } },
-					{ packageName: 'ordinary-dependency', version: '1.0.0' }
-				]
-			})
-
-			const page = await getPageModel()
-			const unknownPlugin = getPlugin(page, 'unknown-plugin')
-
-			expect(unknownPlugin.declaration).toBe('1.0.0')
-			expect(unknownPlugin.installedVersion).toBe('1.0.0')
-			expect(unknownPlugin.known).toBe(false)
-			expect(unknownPlugin.readOnly).toBe(true)
-			expect(getPlugin(page, 'ordinary-dependency')).toBeUndefined()
-		})
-
-		it('does not treat transitive packages as directly installed plugins', async () => {
-			setupProject({
-				dependencies: { 'govuk-frontend': '5.11.2' },
-				plugins: [
-					{ packageName: 'govuk-frontend', version: '5.11.2', config: {} },
-					{ packageName: 'transitive-plugin', version: '1.0.0', config: {} }
-				]
-			})
-
-			expect(getPlugin(await getPageModel(), 'transitive-plugin')).toBeUndefined()
-		})
-
-		it('keeps a declared but missing known plugin in the list', async () => {
-			setupProject({ dependencies: { 'hmrc-frontend': '^6.0.0' } })
-
-			const hmrcFrontend = getPlugin(await getPageModel(), 'hmrc-frontend')
-
-			expect(hmrcFrontend.declaration).toBe('^6.0.0')
-			expect(hmrcFrontend.installedVersion).toBeUndefined()
-			expect(hmrcFrontend.installSource).toBe('registry')
-			expect(hmrcFrontend.known).toBe(true)
-			expect(hmrcFrontend.readOnly).toBe(false)
-		})
-
-		it('reports whether plugin dependency metadata can be read', async () => {
-			setupProject({
-				dependencies: { 'govuk-frontend': '5.11.2' },
-				plugins: [{ packageName: 'govuk-frontend', version: '5.11.2', config: {} }]
-			})
-
-			expect(getPlugin(await getPageModel(), 'govuk-frontend').dependenciesKnown).toBe(true)
-
-			fs.writeFileSync(packagePath('govuk-frontend', 'govuk-prototype-kit.config.json'), '{ not valid json')
-
-			const govukFrontend = getPlugin(await getPageModel(), 'govuk-frontend')
-
-			expect(govukFrontend.dependenciesKnown).toBe(false)
-			expect(govukFrontend.diagnostics.join(' ')).toContain(
-				'Could not read govuk-prototype-kit.config.json for govuk-frontend'
-			)
-		})
-
-		it('shows an installed unknown plugin whose config cannot be read', async () => {
-			setupProject({
-				dependencies: { 'broken-plugin': '1.0.0' },
-				plugins: [{ packageName: 'broken-plugin', version: '1.0.0', config: '{ not valid json' }]
-			})
-
-			const brokenPlugin = getPlugin(await getPageModel(), 'broken-plugin')
-
-			expect(brokenPlugin).toBeDefined()
-			expect(brokenPlugin.known).toBe(false)
-			expect(brokenPlugin.readOnly).toBe(true)
-			expect(brokenPlugin.dependenciesKnown).toBe(false)
-			expect(brokenPlugin.diagnostics.join(' ')).toContain(
-				'Could not read govuk-prototype-kit.config.json for broken-plugin'
-			)
-		})
-	})
-
-	describe('install sources', () => {
-		it.each([
-			['file:../local-plugin', 'local'],
-			['link:../local-plugin', 'local'],
-			['../local-plugin', 'local'],
-			['git+https://example.com/plugin.git', 'git'],
-			['github:example/plugin', 'git'],
-			['owner/repo#main', 'git'],
-			['npm:other-package@1.0.0', 'alias'],
-			['https://example.com/plugin.tgz', 'url'],
-			['unrecognised:specifier', 'other']
-		])('treats %s as a read-only %s dependency', async (declaration, installSource) => {
-			setupProject({
-				dependencies: { 'plugin-under-test': declaration },
-				plugins: [{ packageName: 'plugin-under-test', version: '1.0.0', config: {} }]
-			})
-
-			const plugin = getPlugin(await getPageModel(), 'plugin-under-test')
-
-			expect(plugin.installSource).toBe(installSource)
-			expect(plugin.known).toBe(false)
-			expect(plugin.readOnly).toBe(true)
-		})
-
-		it('makes a known plugin from a local source read-only', async () => {
-			setupProject({
-				dependencies: { 'hmrc-frontend': 'file:../hmrc-frontend' },
-				plugins: [{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }]
-			})
-
-			const hmrcFrontend = getPlugin(await getPageModel(), 'hmrc-frontend')
-
-			expect(hmrcFrontend.known).toBe(true)
-			expect(hmrcFrontend.protectedPackage).toBe(false)
-			expect(hmrcFrontend.readOnly).toBe(true)
-		})
-
-		it('makes a known plugin from GitHub shorthand read-only', async () => {
-			setupProject({
-				dependencies: { 'hmrc-frontend': 'owner/repo#main' },
-				plugins: [{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }]
-			})
-
-			const hmrcFrontend = getPlugin(await getPageModel(), 'hmrc-frontend')
-
-			expect(hmrcFrontend.known).toBe(true)
-			expect(hmrcFrontend.installSource).toBe('git')
-			expect(hmrcFrontend.readOnly).toBe(true)
-		})
-
-		it('makes a known plugin with an unrecognised source read-only', async () => {
-			setupProject({
-				dependencies: { 'hmrc-frontend': 'something:unexpected' },
-				plugins: [{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }]
-			})
-
-			const hmrcFrontend = getPlugin(await getPageModel(), 'hmrc-frontend')
-
-			expect(hmrcFrontend.known).toBe(true)
-			expect(hmrcFrontend.installSource).toBe('other')
-			expect(hmrcFrontend.readOnly).toBe(true)
-		})
-
-		it('reports an invalid dependency declaration and keeps the plugin ineligible', async () => {
-			setupProject({
-				dependencies: { 'hmrc-frontend': 123 },
-				plugins: [{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }]
-			})
-
-			const hmrcFrontend = getPlugin(await getPageModel(), 'hmrc-frontend')
-
-			expect(hmrcFrontend.declaration).toBe(123)
-			expect(hmrcFrontend.installSource).toBe('invalid')
-			expect(hmrcFrontend.readOnly).toBe(true)
-			expect(hmrcFrontend.diagnostics.join(' ')).toContain('Invalid dependency declaration for hmrc-frontend')
-		})
-	})
-
-	describe('diagnostics', () => {
-		it('reports a corrupt project package.json and still lists known plugins', async () => {
-			setupProject({})
-			fs.writeFileSync(path.join(dir, 'package.json'), '{ not valid json')
-
-			const page = await getPageModel()
-
-			expect(page.diagnostics.some((diagnostic) => diagnostic.includes('Could not read project package.json'))).toBe(
-				true
-			)
-			expect(page.plugins.map((plugin) => plugin.packageName)).toContain('govuk-frontend')
-		})
-
-		it('reports a missing known list and still lists installed plugins', async () => {
-			setupProject({
-				dependencies: { 'unknown-plugin': '1.0.0' },
-				plugins: [{ packageName: 'unknown-plugin', version: '1.0.0', config: {} }]
-			})
-			getPaths.mockReturnValue({
-				project: dir,
-				package: path.join(dir, 'package-root'),
-				managePrototype: {
-					views: path.join(repoRoot, 'manage-prototype', 'views'),
-					govukFrontendViews: path.join(repoRoot, 'node_modules', 'govuk-frontend', 'dist'),
-					public: path.join(repoRoot, 'manage-prototype', 'public'),
-					govukFrontend: path.join(repoRoot, 'node_modules', 'govuk-frontend')
-				}
-			})
-
-			const page = await getPageModel()
-
-			expect(page.diagnostics.some((diagnostic) => diagnostic.includes('Could not read known-plugins.json'))).toBe(true)
-			expect(getPlugin(page, 'unknown-plugin').readOnly).toBe(true)
-		})
-
-		it('reports corrupt installed package metadata', async () => {
-			setupProject({
-				dependencies: { 'govuk-frontend': '5.11.2' },
-				plugins: [{ packageName: 'govuk-frontend', version: '5.11.2', config: {} }]
-			})
-			fs.writeFileSync(packagePath('govuk-frontend', 'package.json'), '{ not valid json')
-
-			const govukFrontend = getPlugin(await getPageModel(), 'govuk-frontend')
-
-			expect(govukFrontend.installedVersion).toBeUndefined()
-			expect(govukFrontend.diagnostics.join(' ')).toContain('Could not read package.json for govuk-frontend')
-		})
-	})
-
-	describe('repeated reads', () => {
-		it('sees file edits on the next read', async () => {
-			setupProject({
-				dependencies: { 'hmrc-frontend': '^6.0.0' },
-				plugins: [{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }]
-			})
-
-			expect(getPlugin(await getPageModel(), 'hmrc-frontend').installedVersion).toBe('6.0.0')
-
-			const packageJsonPath = packagePath('hmrc-frontend', 'package.json')
-			const installedPackage = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
-			installedPackage.version = '6.1.0'
-			fs.writeFileSync(packageJsonPath, JSON.stringify(installedPackage))
-
-			expect(getPlugin(await getPageModel(), 'hmrc-frontend').installedVersion).toBe('6.1.0')
-		})
-	})
-
 	describe('page', () => {
-		it('renders the plugin list without network calls', async () => {
+		it('renders the plugin list without public network calls', async () => {
 			setupProject({
 				dependencies: { 'hmrc-frontend': '^6.0.0' },
 				plugins: [{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }]
@@ -403,45 +131,335 @@ describe('plugins management route', () => {
 			expect(fetchSpy).not.toHaveBeenCalled()
 		})
 
-		it('shows independent protected and read-only explanations', async () => {
+		it('renders installed state, protected and read-only explanations and escaped diagnostics', async () => {
 			setupProject({
-				dependencies: { 'govuk-frontend': 'file:../govuk-frontend' },
-				plugins: [{ packageName: 'govuk-frontend', version: '5.11.2', config: {} }]
-			})
-
-			const app = express()
-			app.use('/manage-prototype', getManagePrototypeDevApp())
-			const response = await request(app).get('/manage-prototype/plugins')
-			const html = response.text
-
-			expect(response.status).toBe(200)
-			expect(html).toContain('This plugin is protected, so it cannot be uninstalled.')
-			expect(html).toContain('This plugin was installed from outside the npm registry, so it is read-only.')
-		})
-
-		it('renders installed state, policy explanations and escaped diagnostics in the dev app', async () => {
-			setupProject({
-				dependencies: { 'hmrc-frontend': '^6.0.0', 'broken-plugin': '1.0.0' },
+				dependencies: {
+					'govuk-frontend': 'file:../govuk-frontend',
+					'hmrc-frontend': '^6.0.0',
+					'broken-plugin': '1.0.0'
+				},
 				plugins: [
+					{ packageName: 'govuk-frontend', version: '5.11.2', config: {} },
 					{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} },
 					{ packageName: 'broken-plugin', version: '1.0.0', config: '<script>alert(1)</script>' }
 				]
 			})
 
-			const app = express()
-			app.use('/manage-prototype', getManagePrototypeDevApp())
-			const response = await request(app).get('/manage-prototype/plugins')
+			const response = await request(createDevApp()).get('/manage-prototype/plugins')
 			const html = response.text
 
 			expect(response.status).toBe(200)
 			expect(html).toContain('HMRC Frontend')
 			expect(html).toContain('Installed version 6.0.0')
 			expect(html).toContain('Not installed')
+
+			// protected and read-only are independent explanations
 			expect(html).toContain('This plugin is protected, so it cannot be uninstalled.')
+			expect(html).toContain('This plugin was installed from outside the npm registry, so it is read-only.')
 			expect(html).toContain("This plugin is not in Protato's known list, so it is read-only.")
+
 			expect(html).toContain('&lt;script&gt;')
 			expect(html).not.toContain('<script>alert(1)')
-			expect(html).not.toContain('<form')
+		})
+	})
+
+	describe('plugin actions', () => {
+		it('renders action buttons and latest versions', async () => {
+			setupProject(knownPluginsProject)
+			configureRegistry({
+				latest: { 'hmrc-frontend': '7.0.0', '@govuk-prototype-kit/step-by-step': '2.0.0' }
+			})
+
+			const response = await request(createDevApp()).get('/manage-prototype/plugins')
+			const html = response.text
+
+			expect(response.status).toBe(200)
+			expect(html).toContain('Latest version 7.0.0')
+			expect(html).toContain('data-plugin-action="update"')
+			expect(html).toContain('data-plugin-action="install"')
+			expect(html).toContain('data-plugin-action="uninstall"')
+		})
+	})
+
+	describe('plugin confirmation and execution', () => {
+		async function getConfirmation({ action, packageName, registry } = {}) {
+			if (registry) {
+				configureRegistry(registry)
+			}
+			const { app, renders } = createApp()
+			const query = new URLSearchParams({ action, packageName })
+			const response = await request(app).get(`/manage-prototype/plugins/confirm?${query}`)
+			return { app, renders, response }
+		}
+
+		function postConfirm(app, body) {
+			return request(app).post('/manage-prototype/plugins/confirm').type('form').send(body)
+		}
+
+		it('shows the plan with a confirmation form', async () => {
+			setupProject({})
+
+			const { renders, response } = await getConfirmation({
+				action: 'install',
+				packageName: 'hmrc-frontend',
+				registry: { latest: { 'hmrc-frontend': '7.41.0' } }
+			})
+
+			expect(response.status).toBe(200)
+			const model = renders[0].model
+			expect(model.action).toBe('install')
+			expect(model.pluginName).toBe('HMRC Frontend')
+			expect(model.token).toMatch(/^[a-f0-9]{32}$/)
+			expect(model.expectedChanges).toBe('install:hmrc-frontend::7.41.0')
+		})
+
+		it('shows an offline message when the registry cannot check an install', async () => {
+			setupProject({})
+
+			const { response, renders } = await getConfirmation({
+				action: 'install',
+				packageName: 'hmrc-frontend',
+				registry: { errors: { 'hmrc-frontend': 'registry unavailable' } }
+			})
+
+			expect(response.status).toBe(503)
+			expect(renders[0].model.error).toContain('registry unavailable')
+		})
+
+		it('rejects protected, read-only and invalid targets', async () => {
+			setupProject({
+				dependencies: { 'govuk-frontend': '5.11.2', 'hmrc-frontend': 'file:../hmrc-frontend' },
+				plugins: [
+					{ packageName: 'govuk-frontend', version: '5.11.2', config: {} },
+					{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }
+				]
+			})
+
+			const protectedResult = await getConfirmation({
+				action: 'uninstall',
+				packageName: 'govuk-frontend'
+			})
+			expect(protectedResult.response.status).toBe(400)
+			expect(protectedResult.renders[0].model.error).toContain('protected')
+
+			const readOnlyResult = await getConfirmation({
+				action: 'update',
+				packageName: 'hmrc-frontend'
+			})
+
+			expect(readOnlyResult.response.status).toBe(400)
+			expect(readOnlyResult.renders[0].model.error).toContain('read-only')
+
+			const invalidAction = await getConfirmation({ action: 'remove', packageName: 'hmrc-frontend' })
+			expect(invalidAction.response.status).toBe(400)
+
+			const unknown = await getConfirmation({ action: 'install', packageName: 'unknown-plugin' })
+			expect(unknown.response.status).toBe(400)
+		})
+
+		it('executes the confirmed plan and redirects to the refreshed list', async () => {
+			setupProject({})
+			vi.mocked(devServer.updatePlugins).mockResolvedValue({ ok: true, exitCode: 0 })
+			configureRegistry({ latest: { 'hmrc-frontend': '7.41.0' } })
+			const { app, renders } = createApp()
+
+			const confirmResponse = await request(app).get(
+				'/manage-prototype/plugins/confirm?action=install&packageName=hmrc-frontend'
+			)
+			expect(confirmResponse.status).toBe(200)
+			const model = renders[0].model
+
+			const response = await postConfirm(app, {
+				token: model.token,
+				expectedChanges: model.expectedChanges,
+				action: 'install',
+				packageName: 'hmrc-frontend'
+			})
+
+			expect(response.status).toBe(303)
+			expect(response.headers.location).toBe('/manage-prototype/plugins?updated=1')
+			expect(devServer.updatePlugins).toHaveBeenCalledWith({
+				operation: 'install',
+				packages: [{ packageName: 'hmrc-frontend', version: '7.41.0' }]
+			})
+		})
+
+		it('rejects a plan with blocking problems', async () => {
+			setupProject({
+				dependencies: {
+					'hmrc-frontend': '6.0.0',
+					'@govuk-prototype-kit/step-by-step': '2.0.0'
+				},
+				plugins: [
+					{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} },
+					{
+						packageName: '@govuk-prototype-kit/step-by-step',
+						version: '2.0.0',
+						config: { pluginDependencies: [{ packageName: 'govuk-frontend', minVersion: '6.0.0' }] }
+					}
+				]
+			})
+			configureRegistry({
+				latest: { 'hmrc-frontend': '7.0.0', 'govuk-frontend': '5.11.2' },
+				configs: { 'hmrc-frontend@7.0.0': [{ packageName: 'govuk-frontend', maxVersion: '5.11.2' }] }
+			})
+			const { app, renders } = createApp()
+
+			await request(app).get('/manage-prototype/plugins/confirm?action=update&packageName=hmrc-frontend')
+			const model = renders[0].model
+			expect(model.problems.length).toBeGreaterThan(0)
+
+			const response = await postConfirm(app, {
+				token: model.token,
+				expectedChanges: model.expectedChanges,
+				action: 'update',
+				packageName: 'hmrc-frontend'
+			})
+
+			expect(response.status).toBe(409)
+			expect(renders.at(-1).model.error).toBe('The plan has blocking problems.')
+			expect(renders.at(-1).model.problems.length).toBeGreaterThan(0)
+			expect(devServer.updatePlugins).not.toHaveBeenCalled()
+		})
+
+		it('rejects an old plan after the registry changes', async () => {
+			setupProject({})
+			configureRegistry({ latest: { 'hmrc-frontend': '7.41.0' } })
+			const { app, renders } = createApp()
+
+			await request(app).get('/manage-prototype/plugins/confirm?action=install&packageName=hmrc-frontend')
+			const model = renders[0].model
+			mockRegistry.latest['hmrc-frontend'] = '7.42.0'
+
+			const response = await postConfirm(app, {
+				token: model.token,
+				expectedChanges: model.expectedChanges,
+				action: 'install',
+				packageName: 'hmrc-frontend'
+			})
+
+			expect(response.status).toBe(409)
+			expect(renders.at(-1).model.error).toContain('Review the latest plugin plan')
+			expect(devServer.updatePlugins).not.toHaveBeenCalled()
+		})
+
+		it('rejects bad tokens, cross-origin posts and busy updates', async () => {
+			setupProject({})
+			configureRegistry({ latest: { 'hmrc-frontend': '7.41.0' } })
+			const { app, renders } = createApp()
+
+			await request(app).get('/manage-prototype/plugins/confirm?action=install&packageName=hmrc-frontend')
+			const model = renders[0].model
+			const body = {
+				token: model.token,
+				expectedChanges: model.expectedChanges,
+				action: 'install',
+				packageName: 'hmrc-frontend'
+			}
+
+			const badToken = await postConfirm(app, { ...body, token: 'wrong' })
+			expect(badToken.status).toBe(403)
+
+			const crossOrigin = await postConfirm(app, body).set('origin', 'https://evil.example')
+			expect(crossOrigin.status).toBe(403)
+
+			vi.mocked(devServer.updatePlugins).mockRejectedValueOnce(new Error('Another plugin operation is already running'))
+			const busy = await postConfirm(app, body)
+			expect(busy.status).toBe(409)
+			expect(renders.at(-1).model.error).toContain('already running')
+
+			expect(devServer.updatePlugins).toHaveBeenCalledOnce()
+		})
+
+		it('escapes npm output when an update fails', async () => {
+			setupProject({})
+			vi.mocked(devServer.updatePlugins).mockResolvedValue({
+				ok: false,
+				exitCode: 1,
+				stdout: '<script>alert(1)</script>',
+				stderr: 'npm failed',
+				outputTruncated: false
+			})
+			configureRegistry({ latest: { 'hmrc-frontend': '7.41.0' } })
+			const app = createDevApp()
+
+			const confirmResponse = await request(app).get(
+				'/manage-prototype/plugins/confirm?action=install&packageName=hmrc-frontend'
+			)
+			const html = confirmResponse.text
+			const token = html.match(/name="token" value="([^"]+)"/)[1]
+			const expectedChanges = html.match(/name="expectedChanges" value="([^"]+)"/)[1]
+
+			const response = await request(app)
+				.post('/manage-prototype/plugins/confirm')
+				.type('form')
+				.send({ token, expectedChanges, action: 'install', packageName: 'hmrc-frontend' })
+
+			expect(response.status).toBe(500)
+			expect(response.text).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
+			expect(response.text).not.toContain('<script>alert(1)</script>')
+		})
+
+		it('completes the browser flow and shows the resulting installed state', async () => {
+			setupProject({})
+			vi.mocked(devServer.updatePlugins).mockImplementation(async () => {
+				fs.writeFileSync(
+					path.join(dir, 'package.json'),
+					JSON.stringify({ dependencies: { 'hmrc-frontend': '7.41.0' } })
+				)
+				const packageDir = packagePath('hmrc-frontend')
+				fs.mkdirSync(packageDir, { recursive: true })
+				fs.writeFileSync(
+					path.join(packageDir, 'package.json'),
+					JSON.stringify({ name: 'hmrc-frontend', version: '7.41.0' })
+				)
+				fs.writeFileSync(path.join(packageDir, 'govuk-prototype-kit.config.json'), '{}')
+				return { ok: true, exitCode: 0 }
+			})
+			configureRegistry({ latest: { 'hmrc-frontend': '7.41.0' } })
+			const app = createDevApp()
+
+			const listResponse = await request(app).get('/manage-prototype/plugins')
+			expect(listResponse.text).toContain('data-plugin-action="install"')
+			expect(listResponse.text).toContain('Latest version 7.41.0')
+
+			const confirmResponse = await request(app).get(
+				'/manage-prototype/plugins/confirm?action=install&packageName=hmrc-frontend'
+			)
+			expect(confirmResponse.status).toBe(200)
+			expect(devServer.updatePlugins).not.toHaveBeenCalled()
+			const html = confirmResponse.text
+			const token = html.match(/name="token" value="([^"]+)"/)[1]
+			const expectedChanges = html.match(/name="expectedChanges" value="([^"]+)"/)[1]
+
+			const executeResponse = await request(app)
+				.post('/manage-prototype/plugins/confirm')
+				.type('form')
+				.send({ token, expectedChanges, action: 'install', packageName: 'hmrc-frontend' })
+
+			expect(executeResponse.status).toBe(303)
+			expect(executeResponse.headers.location).toBe('/manage-prototype/plugins?updated=1')
+			expect(devServer.updatePlugins).toHaveBeenCalledOnce()
+
+			const refreshed = await request(app).get('/manage-prototype/plugins?updated=1')
+			expect(refreshed.text).toContain('Installed version 7.41.0')
+			expect(refreshed.text).toContain('The plugin changes were made.')
+		})
+	})
+
+	describe('plugin routes in production', () => {
+		it('does not expose the confirmation endpoints', async () => {
+			setupProject({})
+			const app = getManagePrototypeApp()
+
+			const getResponse = await request(app).get('/manage-prototype/plugins/confirm')
+			expect(getResponse.status).toBe(404)
+
+			const postResponse = await request(app)
+				.post('/manage-prototype/plugins/confirm')
+				.type('form')
+				.send({ action: 'install', packageName: 'hmrc-frontend' })
+			expect(postResponse.status).toBe(404)
 		})
 	})
 })

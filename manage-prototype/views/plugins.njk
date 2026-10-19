@@ -10,6 +10,17 @@
         Plugins provide you with new components, styles and other features.
       </p>
 
+      {% if updated %}
+        <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" data-plugin-updated>
+          <div class="govuk-notification-banner__header">
+            <h2 class="govuk-notification-banner__title">Success</h2>
+          </div>
+          <div class="govuk-notification-banner__content">
+            <p class="govuk-notification-banner__heading">The plugin changes were made.</p>
+          </div>
+        </div>
+      {% endif %}
+
       {% if diagnostics.length %}
         <div class="govuk-inset-text" data-plugin-diagnostics>
           <p class="govuk-body">Some plugin information could not be read:</p>
@@ -61,12 +72,50 @@
                 {% endif %}
               {% endif %}
 
+              {% if plugin.latestVersion %}
+                <p class="govuk-body">Latest version {{ plugin.latestVersion }}</p>
+              {% endif %}
+
               {% if plugin.diagnostics.length %}
                 <ul class="govuk-list govuk-list--bullet">
                   {% for diagnostic in plugin.diagnostics %}
                     <li>{{ diagnostic }}</li>
                   {% endfor %}
                 </ul>
+              {% endif %}
+
+              {% if plugin.actions.install or plugin.actions.update or plugin.actions.uninstall %}
+                <div class="govuk-button-group" data-plugin-actions>
+                  {% if plugin.actions.install %}
+                    <form method="get" action="/manage-prototype/plugins/confirm">
+                      <input type="hidden" name="action" value="install">
+                      <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
+                      <button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" data-plugin-action="install">
+                        Install
+                      </button>
+                    </form>
+                  {% endif %}
+
+                  {% if plugin.actions.update %}
+                    <form method="get" action="/manage-prototype/plugins/confirm">
+                      <input type="hidden" name="action" value="update">
+                      <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
+                      <button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button" data-plugin-action="update">
+                        Update to {{ plugin.latestVersion }}
+                      </button>
+                    </form>
+                  {% endif %}
+
+                  {% if plugin.actions.uninstall %}
+                    <form method="get" action="/manage-prototype/plugins/confirm">
+                      <input type="hidden" name="action" value="uninstall">
+                      <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
+                      <button class="govuk-button govuk-button--warning govuk-!-margin-bottom-0" data-module="govuk-button" data-plugin-action="uninstall">
+                        Uninstall
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
               {% endif %}
             </dd>
           </div>

@@ -1,228 +1,156 @@
-import fs from 'node:fs'
-import path from 'node:path'
+import { randomBytes } from 'node:crypto'
 
 import express from 'express'
-import { getPaths } from '../../lib/paths.js'
-import plugins from '../../lib/plugins.js'
 
-const CONFIG_FILE = 'govuk-prototype-kit.config.json'
-const KNOWN_PLUGINS_FILE = 'known-plugins.json'
+import devServer from '../../lib/dev-server.js'
+import { addUpdateState, buildActionPlan, buildNpmPlan, readPlugins } from '../../lib/plugin-management.js'
 
 const router = express.Router()
+const formToken = randomBytes(16).toString('hex')
 
-function readJsonFile(filePath) {
-	return JSON.parse(fs.readFileSync(filePath, 'utf8'))
-}
+function isCrossOrigin(request) {
+	const origin = request.get('origin')
 
-function isObject(value) {
-	return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function readKnownPlugins(paths, diagnostics) {
-	const filePath = path.join(paths.package, KNOWN_PLUGINS_FILE)
-
-	let knownPlugins
+	if (!origin) {
+		return false
+	}
 
 	try {
-		knownPlugins = readJsonFile(filePath)
-
-		if (!isObject(knownPlugins) || !Array.isArray(knownPlugins.available) || !Array.isArray(knownPlugins.protected)) {
-			throw new Error('expected available and protected lists')
-		}
-	} catch (error) {
-		diagnostics.push(`Could not read ${KNOWN_PLUGINS_FILE}: ${error.message}`)
-		return { available: [], protectedPackages: [] }
-	}
-
-	return {
-		available: knownPlugins.available.filter((packageName) => typeof packageName === 'string'),
-		protectedPackages: knownPlugins.protected.filter((packageName) => typeof packageName === 'string')
+		return new URL(origin).host !== request.get('host')
+	} catch {
+		return true
 	}
 }
 
-function readProjectDependencies(paths, diagnostics) {
+function renderConfirmError(response, status, heading, error, extra = {}) {
+	response.status(status).render('plugin-confirm', {
+		pageName: 'Confirm plugin changes',
+		heading,
+		error,
+		problems: [],
+		...extra
+	})
+}
+
+router.get('/', async (request, response, next) => {
 	try {
-		const projectPackage = readJsonFile(path.join(paths.project, 'package.json'))
+		const { pagePlugins, diagnostics } = readPlugins()
 
-		if (!isObject(projectPackage)) {
-			throw new Error('expected an object')
-		}
+		await addUpdateState(pagePlugins)
 
-		return isObject(projectPackage.dependencies) ? projectPackage.dependencies : {}
+		response.render('plugins', {
+			pageName: 'Plugins',
+			plugins: pagePlugins,
+			diagnostics,
+			updated: request.query.updated === '1'
+		})
 	} catch (error) {
-		diagnostics.push(`Could not read project package.json: ${error.message}`)
-		return {}
+		next(error)
 	}
-}
+})
 
-// a declaration does not prove a package is installed, so read the installed
-// metadata separately and keep any problems with it as diagnostics
-function readInstalledPackage(projectDir, packageName) {
-	const packageDir = path.join(projectDir, 'node_modules', packageName)
-	const diagnostics = []
+router.get('/confirm', async (request, response) => {
+	const state = readPlugins()
+	const { action, packageName } = request.query
+	const result = await buildActionPlan(action, packageName, state)
 
-	if (!fs.existsSync(packageDir)) {
-		return { diagnostics }
-	}
-
-	let installedVersion
-
-	try {
-		const installedPackage = readJsonFile(path.join(packageDir, 'package.json'))
-
-		if (!isObject(installedPackage)) {
-			throw new Error('expected an object')
-		}
-
-		if (typeof installedPackage.version === 'string') {
-			installedVersion = installedPackage.version
-		}
-	} catch (error) {
-		diagnostics.push(`Could not read package.json for ${packageName}: ${error.message}`)
-	}
-
-	let config
-	let configError
-	const configPath = path.join(packageDir, CONFIG_FILE)
-
-	if (fs.existsSync(configPath)) {
-		try {
-			config = readJsonFile(configPath)
-
-			if (!isObject(config)) {
-				throw new Error('expected an object')
-			}
-		} catch (error) {
-			config = undefined
-			configError = `Could not read ${CONFIG_FILE} for ${packageName}: ${error.message}`
-			diagnostics.push(configError)
-		}
-	}
-
-	return { installedVersion, config, configError, diagnostics }
-}
-
-function getInstallSource(declaration) {
-	if (declaration === undefined) {
+	if (result.error) {
+		renderConfirmError(response, result.status, 'Plugin changes could not be started', result.error)
 		return
 	}
 
-	if (declaration.startsWith('npm:')) {
-		return 'alias'
+	response.render('plugin-confirm', {
+		pageName: 'Confirm plugin changes',
+		action,
+		packageName,
+		pluginName: result.plugin.name,
+		publisher: result.plugin.publisher,
+		version: result.version,
+		noop: result.plan.noop,
+		changes: result.changes,
+		problems: result.problems,
+		token: formToken,
+		expectedChanges: result.expectedChanges
+	})
+})
+
+router.post('/confirm', async (request, response) => {
+	const body = request.body ?? {}
+
+	if (isCrossOrigin(request)) {
+		renderConfirmError(response, 403, 'Plugin changes were not allowed', 'The request came from another site.')
+		return
 	}
 
-	if (
-		declaration.startsWith('.') ||
-		declaration.startsWith('/') ||
-		declaration.startsWith('~/') ||
-		declaration.startsWith('file:') ||
-		declaration.startsWith('link:') ||
-		declaration.startsWith('workspace:') ||
-		/^[a-zA-Z]:[\\/]/.test(declaration)
-	) {
-		return 'local'
+	if (body.token !== formToken) {
+		renderConfirmError(
+			response,
+			403,
+			'Plugin changes were not allowed',
+			'The form has expired. Go back to the plugins page and try again.'
+		)
+		return
 	}
 
-	if (
-		declaration.startsWith('git') ||
-		declaration.startsWith('ssh:') ||
-		declaration.startsWith('github:') ||
-		declaration.startsWith('gitlab:') ||
-		declaration.startsWith('bitbucket:') ||
-		declaration.startsWith('gist:') ||
-		// npm's GitHub shorthand, such as owner/repo or owner/repo#main
-		/^[^@/\s][^/\s]*\/[^/\s]+(?:#.*)?$/.test(declaration)
-	) {
-		return 'git'
+	const state = readPlugins()
+	const { action, packageName, expectedChanges } = body
+	const result = await buildActionPlan(action, packageName, state)
+
+	if (result.error) {
+		renderConfirmError(response, result.status, 'Plugin changes could not be made', result.error)
+		return
 	}
 
-	if (declaration.startsWith('http:') || declaration.startsWith('https:')) {
-		return 'url'
+	if (!result.plan.ok) {
+		renderConfirmError(response, 409, 'The plugin changes could not be made', 'The plan has blocking problems.', {
+			problems: result.problems
+		})
+		return
 	}
 
-	// only treat clear version ranges and dist-tags as registry installs;
-	// anything else stays read-only rather than replacing a local package
-	if (/^(?:[\^~<>=*\d]|v\d)/.test(declaration) || /^[a-zA-Z][a-zA-Z0-9._-]*$/.test(declaration)) {
-		return 'registry'
+	if (result.plan.noop) {
+		response.redirect(303, '/manage-prototype/plugins')
+		return
 	}
 
-	return 'other'
-}
-
-function isValidDeclaration(declaration) {
-	return typeof declaration === 'string' && declaration.trim().length > 0
-}
-
-router.get('/', (request, response) => {
-	const paths = getPaths()
-	const diagnostics = []
-	const { available, protectedPackages } = readKnownPlugins(paths, diagnostics)
-	const dependencies = readProjectDependencies(paths, diagnostics)
-
-	const knownPackageNames = new Set([...protectedPackages, ...available])
-	const installedByPackage = new Map()
-
-	for (const packageName of Object.keys(dependencies).sort()) {
-		installedByPackage.set(packageName, readInstalledPackage(paths.project, packageName))
+	if (expectedChanges !== result.expectedChanges) {
+		renderConfirmError(
+			response,
+			409,
+			'The plugin list changed',
+			'Review the latest plugin plan and confirm the changes again.'
+		)
+		return
 	}
 
-	// protected packages first, then the known list order, then installed
-	// plugins that are not known (read only, shown so they can be diagnosed).
-	// A config that exists but cannot be read still counts as a plugin.
-	const packageNames = []
+	try {
+		const npmResult = await devServer.updatePlugins(buildNpmPlan(result.plan))
 
-	for (const packageName of [...protectedPackages, ...available]) {
-		if (!packageNames.includes(packageName)) {
-			packageNames.push(packageName)
-		}
-	}
-
-	for (const [packageName, installed] of installedByPackage) {
-		if (!packageNames.includes(packageName) && (installed.config || installed.configError)) {
-			packageNames.push(packageName)
-		}
-	}
-
-	const pagePlugins = []
-
-	for (const packageName of packageNames) {
-		const declaration = dependencies[packageName]
-		const installed = installedByPackage.get(packageName) ?? { diagnostics: [] }
-		const pluginDiagnostics = [...(installed.diagnostics ?? [])]
-
-		let installSource
-
-		if (declaration !== undefined && !isValidDeclaration(declaration)) {
-			pluginDiagnostics.push(`Invalid dependency declaration for ${packageName}: expected a non-empty string`)
-			installSource = 'invalid'
-		} else {
-			installSource = getInstallSource(declaration)
+		if (!npmResult?.ok) {
+			const output = [npmResult?.stdout, npmResult?.stderr].filter(Boolean).join('\n').trim()
+			renderConfirmError(
+				response,
+				500,
+				'npm could not update the plugins',
+				'The project was rebuilt and the prototype restarted. Check the npm output below.',
+				{ output, outputTruncated: Boolean(npmResult?.outputTruncated) }
+			)
+			return
 		}
 
-		const known = knownPackageNames.has(packageName)
-		const protectedPackage = protectedPackages.includes(packageName)
+		response.redirect(303, '/manage-prototype/plugins?updated=1')
+	} catch (error) {
+		const isBusy = error.message === 'Another plugin operation is already running'
+		const status = isBusy ? 409 : 500
+		const message =
+			error.code === 'CLEANUP_FAILED' ? `${error.message} Restart the dev server before trying again.` : error.message
+		const output = [error.result?.stdout, error.result?.stderr].filter(Boolean).join('\n').trim()
 
-		// protato is the tool running the project, so it cannot update or uninstall itself
-		const readOnly =
-			!known || packageName === 'protato' || (installSource !== undefined && installSource !== 'registry')
-
-		pagePlugins.push({
-			packageName,
-			...plugins.formatPackageName(packageName),
-			declaration,
-			installedVersion: installed.installedVersion,
-			installSource,
-			known,
-			protectedPackage,
-			readOnly,
-			// undefined pluginDependencies can mean no dependencies or unreadable
-			// config, so say whether the dependency metadata is known at all
-			dependenciesKnown: installed.config !== undefined,
-			diagnostics: pluginDiagnostics
+		renderConfirmError(response, status, 'The plugin update failed', message, {
+			output,
+			outputTruncated: Boolean(error.result?.outputTruncated)
 		})
 	}
-
-	response.render('plugins', { pageName: 'Plugins', plugins: pagePlugins, diagnostics })
 })
 
 export default router

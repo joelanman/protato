@@ -5,8 +5,11 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"@govuk-prototype-kit/common-templates": "2.0.1",
-		"govuk-frontend": "^5.11.0",
+		"@govuk-prototype-kit/common-templates": "3.0.1",
+		"@govuk-prototype-kit/step-by-step": "3.0.0",
+		"@ministryofjustice/frontend": "11.1.0",
+		"govuk-frontend": "6.6.0",
+		"hmrc-frontend": "7.41.0",
 		"protato": "file:.."
 	}
 }
