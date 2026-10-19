@@ -54,7 +54,7 @@ The plan for plugin support in Protato and the plugins management UI.
 - **Phase 3: Plugins management UI (T8–T14)** *(planned below; awaiting review)*
   - T8: Known plugins and read-only `/plugins` page *(initial implementation needs rework after review)*
   - T9: Registry versions and target-version plugin configs
-  - T10: Safe Windows-compatible npm runner (lifecycle coordinated in T12)
+  - ✅ T10: Fixed Windows-compatible npm commands (lifecycle coordinated in T12)
   - T11: Pure install/update/uninstall planner (`pluginDependencies` and dependents)
   - T12: Background install jobs in the dev server
   - T13: Extend `/plugins` with install/update/uninstall confirmation and progress
@@ -200,7 +200,7 @@ All three tasks pass local `npm test`, including lint and real-file rendering/HT
 5. **Unknown packages:** display directly installed plugins with readable kit configs as read-only. Allow UI changes only to known packages, including every dependency added/updated/removed by a plan (D3). Unknown/local plugins still participate in dependency checks so a known-package action cannot silently break them.
 6. **Dependencies worth adding:** propose `semver` for version constraints, `tar-stream` to read one config entry from a gzipped npm archive without extracting files, and `cross-spawn` for npm invocation on Windows. Review maintenance/current versions before adding each. Native `fetch`, `node:zlib` and existing Express/Chokidar cover the rest. Do not add a registry SDK, queue library or frontend framework.
 7. **Jobs:** one operation at a time, stored in memory in the dev server. Reject another submission as busy rather than queueing it. Jobs do not survive a dev-server restart; report actual filesystem state after restarting. Keep bounded output and a small bounded history, not a persistent job database.
-8. **Failure:** npm changes are not transactional. Do not promise rollback. After success or failure, re-read project files, invalidate caches, rebuild and attempt to start the prototype again. Distinguish npm failure, rebuild failure and restart failure; the management UI must stay usable.
+8. **Failure:** npm changes are not transactional. Do not promise rollback. After npm has stopped, re-read project files, invalidate caches, rebuild and attempt to start the prototype again, whether npm succeeded or failed. If process cleanup fails or cannot be established, do not restart the prototype or permit another mutation; report that the dev server needs restarting. Distinguish npm failure, cleanup failure, rebuild failure and restart failure; the management UI must stay usable.
 9. **Request protection:** mutation routes require a dev-server-generated form token and reject cross-origin requests. No installation via GET, no arbitrary package/version/command fields accepted from the browser. Development-only does not mean a website should be able to trigger local npm commands.
 
 If any choice above is unsuitable, change the plan before implementation rather than guessing inside a task.
@@ -248,23 +248,59 @@ If any choice above is unsuitable, change the plan before implementation rather 
 - Real tiny archive fixtures: correct config, version-specific dependencies, missing/malformed/duplicate entries, truncated/corrupt gzip/tar and unsafe paths. No extraction or project writes.
 - Cache hits/invalidation; failed lookups do not poison good cached data or become an empty successful config.
 
-### T10 — Run npm safely on Windows and Unix
+### ✅ T10 — Run fixed npm commands safely (Done)
 
-**Files:** new `lib/plugin-npm.js` and tests, `package.json`/`package-lock.json` for the reviewed process dependency.
+**Review decision:** the initial implementation is too configurable and large. Simplify it before starting T11; do not keep adding patches around the factory API. Keep safety, remove flexibility that Protato does not need.
 
-**Changes**
+**Files:** `lib/plugin-npm.js` and tests, `lib/utils/stop-process-tree.js` and tests, the minimum real process fixtures/helpers needed, `package.json`, `package-lock.json`.
 
-- Accept only validated structured plans, never a command string. Generate `npm install --save-exact <package>@<exact-version> …` or `npm uninstall <package> …` argument arrays with a fixed project working directory.
-- Validate allowlisted names, exact versions and operation kind again at the execution boundary. No paths, URLs, option-like values or client-supplied npm flags.
-- Use the reviewed Windows-capable spawn mechanism, not handwritten shell interpolation or `exec()`. Explicitly document that cross-spawn may use Windows command-shell machinery for `.cmd`; validated fixed arguments are still essential.
-- Return exit status and bounded stdout/stderr; handle spawn errors and cancellation/timeout without leaving a second npm operation running. Do not suppress npm failures or claim rollback.
-- This helper only runs npm. T12 owns stopping/restarting the prototype and ensures the child has exited before invoking it.
+**Fixed interface**
 
-**Acceptance tests**
+```js
+await runPluginNpm({
+	operation: 'install',
+	packages: [{ packageName: 'hmrc-frontend', version: '7.41.0' }]
+})
+```
 
-- Argument/cwd validation and malicious/unknown input rejected before spawning; success, non-zero exit, spawn failure and bounded output.
-- Exercise the process seam with a real fixture executable, including a project path containing spaces on Windows CI. Verify cancellation settles only after the child has stopped.
-- Add an offline smoke test invoking real npm to uninstall an existing fixture package from a temporary project, without public network access. Test install argument construction separately; do not make CI depend on live npm packages.
+- Export a single `runPluginNpm(plan)` function, not `createPluginNpm(options)` returning configurable runners. Keep argument construction private unless another production caller genuinely needs it.
+- Invoke `npm` through `cross-spawn`, which handles Windows executable resolution. The working directory is `getPaths().project`, and the allowlist comes from Protato's `known-plugins.json`. Callers supply only the structured operation/package plan.
+- Install: `npm install --save-exact --no-audit --no-fund <package>@<exact-version> …`.
+- Uninstall: `npm uninstall --no-audit --no-fund <package> …`.
+- No public executable, prefix-argument, environment, spawn, allowlist, output-limit, polling-interval or timeout overrides. Limits are named internal constants. Tests must not expand the production API to accommodate fixtures.
+
+**Required behaviour**
+
+- Validate the operation, non-empty package list, known-package membership, protected-package policy and exact install versions before spawning. Known-package membership rejects paths, URLs, flags and shell metacharacters; test the bundled list's package-name validity rather than repeating that validation at runtime. Keep duplicate detection. This is an internal plan API: no separate object-shape error branches are needed, and uninstall ignores any version property. Never pass arbitrary plan properties to npm.
+- Use the reviewed `cross-spawn` dependency with fixed arguments and `shell: false`; do not build shell command strings. Remember that Windows `.cmd` invocation may still use command-shell machinery internally, so input validation remains necessary.
+- Capture bounded stdout/stderr and return a small result: `ok`, `exitCode`, `stdout`, `stderr`, `outputTruncated` and `timedOut`. Do not repeat the command, arguments, working directory and duration in every result. Non-zero exits must remain visible; validation/spawn failures reject with a useful error.
+- Keep one minimal in-flight guard around npm execution, including cleanup. No per-runner state, queues, configurable job framework or parallel execution. T12 supplies the overall job lifecycle/progress, not another npm scheduler.
+- **No user cancellation or AbortSignal API in this phase.** There is no current UI requirement for it. Keep a fixed operation timeout to handle a hung npm command.
+- On timeout, force-stop the process tree. Do not implement graceful-then-force escalation for npm: graceful termination does not provide rollback. Keep platform-specific termination in the small `stop-process-tree.js` helper; do not build a general process supervisor.
+- The termination helper has fixed internal bounds and no boolean result or polling option. Use Node's promise timer and one shared polling loop that checks whether the process stopped before declaring timeout. On POSIX it requires a detached process-group leader and must still handle descendants when the parent exits first; no fallback to killing only the parent. Windows uses native `spawn` for `taskkill /T /F`.
+- Resolve termination only after cleanup is established; reject if it fails or is unknown. Do not swallow cleanup errors or release the safety lock as if stopping succeeded. Surface cleanup failure and prevent further mutation until dev-server restart. Do not claim that a parent exiting proves its descendants have exited.
+- T12 owns stopping the prototype before npm and rebuilding/restarting afterwards. Do not wire the dev server, watcher or UI into this task.
+
+**Test scope**
+
+- Retain focused tests for fixed arguments (especially install-only `--save-exact`), project cwd, allowlist/plan validation, success, non-zero exit, spawn errors, bounded output and overlapping execution.
+- Mock the process boundary or fixed configuration modules where useful; use real temporary projects for filesystem outcomes. Avoid factories/options added solely for tests, duplicated configurable fixture machinery and long descriptions that restate every implementation detail.
+- Retain real descendant-process tests for both inherited and ignored pipes: one catches hanging completion, the other catches early completion. Test timeout/termination rather than retaining a cancellation API solely to drive these tests. Test the termination helper directly where appropriate.
+- Heartbeats must change on every write (counter/timestamp), not repeatedly write the same PID. Test that a live fixture is detected as live, so a broken assertion cannot falsely prove cleanup.
+- Cover termination failure/unknown cleanup: no false successful completion, prototype restart or second npm operation. Do not skip Windows requirements by treating an exited parent as verified cleanup.
+- Keep the offline real-npm uninstall smoke test in a temporary project, including a path containing spaces. No public registry dependency. Unit-test install argument construction separately.
+- Delete tests for deliberately removed flexibility/cancellation, not safety regressions. Run `npm test`, confirm Windows CI and stop for review before T11. No arbitrary line-count target, but the result should be substantially smaller and easier to follow than the initial implementation.
+
+**Done**
+
+- `lib/plugin-npm.js` now exports only `runPluginNpm(plan)` (plus `PluginNpmError`). Arguments are built privately; the project directory comes from `getPaths().project` and the allowlist is imported once from Protato's own `known-plugins.json` (not re-read or schema-validated per operation). All limits are internal constants.
+- Fixed command shapes: `install --no-audit --no-fund --save-exact <pkg>@<version>` and `uninstall --no-audit --no-fund <pkg>`, via `cross-spawn` with `shell: false`.
+- Normal runs settle only on `close`, so npm's final output is kept; only the timeout path uses exit plus cleanup completion. The result is `{ ok, exitCode, stdout, stderr, outputTruncated, timedOut }`. Non-zero exits are returned; validation and spawn failures reject. There is one in-flight guard, no cancellation API and no per-runner configuration.
+- On the fixed operation timeout, `stopProcessTree(child)` force-kills the tree (POSIX process group SIGKILL, Windows `taskkill /T /F`) with fixed internal bounds. It resolves only when cleanup is established and rejects when cleanup failed or is unknown (for example a Windows parent that already exited). The npm runner waits for cleanup before settling, reports `CLEANUP_FAILED` with the partial result on `error.result` and locks (`CLEANUP_REQUIRED`) until the dev server restarts.
+- `lib/plugin-npm.test.js` covers validation, results and event ordering with mocked processes. `lib/plugin-npm-real.test.js` covers both real descendant/pipe modes, changing heartbeats and offline npm uninstall in a path containing spaces. Helper tests cover termination error paths without repeating the real-process scenarios. The separate timeout test file, configurable fake-npm fixture and cancellation tests were removed.
+- Uninstall is refused at the execution boundary for protected packages (defence in depth on top of the T11 planner policy).
+- Windows CI still needs to confirm `taskkill` and the `UNKNOWN_CLEANUP` case.
+- Local `npm test` passes.
 
 ### T11 — Plan changes without side effects
 
@@ -295,7 +331,8 @@ If any choice above is unsuitable, change the plan before implementation rather 
 - Own jobs in the dev-server process, where they survive prototype restarts. Pass the service into the management app explicitly; avoid a circular chain of routes importing the dev server importing routes.
 - On submission, re-read state and verify the confirmed plan is still current. A changed plan requires a new confirmation; do not silently execute different changes or a newer `latest` version.
 - Claim the busy slot synchronously before async work. Record simple states such as stopping, running npm, rebuilding, restarting, succeeded and failed, plus bounded diagnostic output.
-- Stop the prototype and await its exit before npm starts, then re-read installed package information, invalidate registry/runtime caches, rebuild Sass and generated macro layouts, and restart using the new build result. Clear stale generated layouts before rebuilding.
+- Stop the prototype and await its exit before npm starts. After npm has stopped, re-read installed package information, invalidate registry/runtime caches, rebuild Sass and generated macro layouts, and restart using the new build result. Clear stale generated layouts before rebuilding. If process cleanup fails or is unknown, keep the prototype stopped, block further mutation and show recovery instructions instead of restarting.
+- On dev-server shutdown, stop any running npm job and wait for its process-tree cleanup before exiting. A detached npm process must not keep changing the project after the dev server has gone. The in-memory busy flag cannot detect a process left by an earlier server, so do not rely on it across restarts.
 - Coordinate existing backend/Sass watcher callbacks so none can restart/build against partially changed packages. Coalesce changes during the job into the single post-job rebuild/restart, including on failure. Do not add a generic scheduling framework.
 - The management app and job status remain available while the prototype is stopped or broken. Track npm outcome separately from a prototype build/startup problem, and release the busy slot in every completion path.
 - While npm runs, prototype requests receive a clear temporary-unavailable response instead of a raw proxy connection failure.
