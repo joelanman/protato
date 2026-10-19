@@ -1,0 +1,10 @@
+{
+	"available": [
+		"govuk-frontend",
+		"@govuk-prototype-kit/common-templates",
+		"@govuk-prototype-kit/step-by-step",
+		"@ministryofjustice/frontend",
+		"hmrc-frontend"
+	],
+	"protected": ["protato", "govuk-frontend"]
+}

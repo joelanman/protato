@@ -72,6 +72,12 @@ describe('manage prototype app', () => {
 		})
 	})
 
+	it('does not expose the plugins management page', async () => {
+		const response = await request(app).get('/manage-prototype/plugins')
+
+		expect(response.status).toBe(404)
+	})
+
 	it('redirects back to the password page when the password is wrong', async () => {
 		const response = await request(app)
 			.post('/manage-prototype/password')

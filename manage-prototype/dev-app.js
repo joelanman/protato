@@ -7,6 +7,7 @@ import livereload from '../lib/livereload.js'
 import { errorHandler } from '../lib/middleware/errors.js'
 import { getPaths } from '../lib/paths.js'
 import managePrototypeNunjucks from './nunjucks.js'
+import pluginRoutes from './routes/plugins.js'
 import templateRoutes from './routes/templates.js'
 
 const getManagePrototypeDevApp = () => {
@@ -31,9 +32,7 @@ const getManagePrototypeDevApp = () => {
 	// to the prototype server via the dev server's proxy.
 	app.use('/templates', templateRoutes)
 
-	app.get('/plugins', (request, response) => {
-		response.render('plugins', { pageName: 'Plugins' })
-	})
+	app.use('/plugins', pluginRoutes)
 
 	// live reload
 	app.get('/livereload', livereload.getRoute())

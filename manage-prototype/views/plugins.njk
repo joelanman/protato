@@ -3,16 +3,75 @@
 {% block content %}
 
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds">
+    <div class="govuk-grid-column-two-thirds-from-desktop">
       <h1 class="govuk-heading-l">Plugins</h1>
 
       <p class="govuk-body">
-        Plugins management is not yet available.
+        Plugins provide you with new components, styles and other features.
       </p>
 
-      <p class="govuk-body">
-        <a href="/manage-prototype">Back to Manage your prototype</a>
-      </p>
+      {% if diagnostics.length %}
+        <div class="govuk-inset-text" data-plugin-diagnostics>
+          <p class="govuk-body">Some plugin information could not be read:</p>
+          <ul class="govuk-list govuk-list--bullet">
+            {% for diagnostic in diagnostics %}
+              <li>{{ diagnostic }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <dl class="govuk-summary-list">
+        {% for plugin in plugins %}
+          <div class="govuk-summary-list__row" data-plugin-package-name="{{ plugin.packageName }}">
+            <dt class="govuk-summary-list__key">
+              {{ plugin.name }}
+              {% if plugin.publisher %}
+                <span class="govuk-caption-m">From {{ plugin.publisher }}</span>
+              {% endif %}
+            </dt>
+            <dd class="govuk-summary-list__value">
+              {% if plugin.installedVersion %}
+                <p class="govuk-body">Installed version {{ plugin.installedVersion }}</p>
+              {% else %}
+                <p class="govuk-body">Not installed</p>
+              {% endif %}
+
+              {% if plugin.packageName === 'protato' %}
+                <p class="govuk-body">
+                  Protato is running this project, so it cannot update or uninstall itself.
+                </p>
+              {% else %}
+                {% if plugin.protectedPackage %}
+                  <p class="govuk-body">
+                    This plugin is protected, so it cannot be uninstalled.
+                  </p>
+                {% endif %}
+
+                {% if plugin.readOnly %}
+                  {% if not plugin.known %}
+                    <p class="govuk-body">
+                      This plugin is not in Protato's known list, so it is read-only.
+                    </p>
+                  {% else %}
+                    <p class="govuk-body">
+                      This plugin was installed from outside the npm registry, so it is read-only.
+                    </p>
+                  {% endif %}
+                {% endif %}
+              {% endif %}
+
+              {% if plugin.diagnostics.length %}
+                <ul class="govuk-list govuk-list--bullet">
+                  {% for diagnostic in plugin.diagnostics %}
+                    <li>{{ diagnostic }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+            </dd>
+          </div>
+        {% endfor %}
+      </dl>
     </div>
   </div>
 

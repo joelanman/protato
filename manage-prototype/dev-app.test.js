@@ -288,13 +288,14 @@ describe('manage prototype dev app', () => {
 	})
 
 	describe('GET /plugins', () => {
-		it('renders the plugins placeholder page', async () => {
+		it('renders the plugins page', async () => {
 			const response = await request(app).get('/manage-prototype/plugins')
 
 			expect(response.status).toBe(200)
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugins')
-			expect(model).toEqual({ pageName: 'Plugins' })
+			expect(model.pageName).toBe('Plugins')
+			expect(Array.isArray(model.plugins)).toBe(true)
 		})
 	})
 
