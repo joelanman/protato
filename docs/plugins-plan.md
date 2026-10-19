@@ -47,10 +47,10 @@ The plan for plugin support in Protato and the plugins management UI.
   - ✅ T2: Normalise plugin configs on read
   - ✅ T3: Plugin order and view precedence
   - ✅ T4: Windows CI and Windows-safe paths
-- **Phase 2: Complete documented plugin support (T5–T7)** *(in progress)*
+- **Phase 2: Complete documented plugin support (T5–T7)** *(tasks done, awaiting review)*
   - ✅ T5: `stylesheets` config support and plugin CSS in layouts
   - ✅ T6: Correct asset serving for files and directories
-  - T7: Quiet require hook and config imports with or without `.js`
+  - ✅ T7: Config imports with or without `.js` (replacement logging kept)
 - **Phase 3: Plugins management UI (T8–T14)** *(to be detailed after Phase 2)*
   - T8: Known plugins list
   - T9: Fetching latest versions from the npm registry
@@ -156,20 +156,19 @@ Keep Protato's existing normalised configs, explicit loops, locals and layouts. 
 - Production authentication protects plugin assets; existing directory asset URLs still work.
 - A rendered plugin stylesheet link can be fetched successfully, completing T5's browser-facing coverage.
 
-### T7 — Tidy the existing require hook
+### ✅ T7 — Config imports with or without `.js` (Done)
 
 **Files:** `lib/utils/replace-require.js`, `lib/utils/replace-require.test.js`, CommonJS server fixture/tests.
 
 **Changes**
 
 - Support both `govuk-prototype-kit/lib/config` and `govuk-prototype-kit/lib/config.js`, returning Protato's existing config module with `getConfig`.
-- Remove successful-replacement console logging for the root API and config imports.
+- Keep successful-replacement console logging for now (deferred in review).
 - Keep the current root API mapping, return shapes and normal resolution of all unrelated requests. Do not change handling of other kit subpaths in this task.
 
 **Acceptance tests**
 
 - Both config spellings return the same module and expose `getConfig`.
-- Root API and config replacements produce no console output.
 - Built-ins and unrelated package requests still use normal resolution; tests restore global require state.
 - A real CommonJS prototype reads config without `.js` while its existing routes, filters and functions continue to work. Use the subprocess/server fixture for startup verification, since Vitest's ESM module graph and Node's `require()` cache differ.
 

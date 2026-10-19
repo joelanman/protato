@@ -292,6 +292,8 @@ describe('Server (commonjs prototype)', () => {
 
 		const view = await (await fetch(root + '/register-test')).text()
 		expect(view).toContain('HI 42 Alice')
+		// read with require('govuk-prototype-kit/lib/config') in app/filters.js
+		expect(view).toContain('Service name goes here')
 
 		const route = await (await fetch(root + '/hello-route')).text()
 		expect(route).toBe('hello from user route')
