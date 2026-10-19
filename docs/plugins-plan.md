@@ -49,7 +49,7 @@ The plan for plugin support in Protato and the plugins management UI.
   - ✅ T4: Windows CI and Windows-safe paths
 - **Phase 2: Complete documented plugin support (T5–T7)** *(in progress)*
   - ✅ T5: `stylesheets` config support and plugin CSS in layouts
-  - T6: Correct asset serving for files and directories
+  - ✅ T6: Correct asset serving for files and directories
   - T7: Quiet require hook and config imports with or without `.js`
 - **Phase 3: Plugins management UI (T8–T14)** *(to be detailed after Phase 2)*
   - T8: Known plugins list
@@ -133,7 +133,7 @@ Keep Protato's existing normalised configs, explicit loops, locals and layouts. 
 - Real Nunjucks rendering of both layouts includes each declared stylesheet once, in order, after the appropriate application stylesheet. Check URL escaping and unchanged script output.
 - Existing locals aliases and project template overrides still work. Use real files for plugin/rendering tests rather than relying only on the mocked app tests.
 
-### T6 — Serve asset files and directories correctly
+### ✅ T6 — Serve asset files and directories correctly (Done)
 
 **Files:** `lib/plugins.js`, `lib/plugins.test.js`, `lib/app.js`, real-file HTTP integration/server tests; `tests/helpers/plugin-project.js` only if needed.
 

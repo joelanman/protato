@@ -24,9 +24,11 @@ function writeFiles(dir, files = {}) {
  * @param {object} [options.dependencies] project package.json dependencies,
  *   defaults to every plugin at version 1.0.0
  * @param {Array<object>} [options.plugins] plugins installed in node_modules:
- *   { packageName, version?, config?, packageJson?, files? }. A config that is a
+ *   { packageName, version?, config?, packageJson?, files?, linkFrom? }. A config that is a
  *   string is written as-is (e.g. invalid JSON), an undefined config means no
- *   config file is written.
+ *   config file is written. linkFrom links the package directory to a real
+ *   package instead of writing files, which is useful for testing the packages
+ *   Protato ships with.
  * @param {object} [options.files] project files, relative to the project root
  * @returns {{ dir: string, cleanup: () => void }}
  */
@@ -43,8 +45,21 @@ export function createPluginProject({ dependencies, plugins = [], files = {} } =
 	writeFile(dir, 'package.json', { dependencies })
 	writeFiles(dir, files)
 
-	for (const { packageName, version = '1.0.0', config, packageJson = {}, files: pluginFiles = {} } of plugins) {
+	for (const {
+		packageName,
+		version = '1.0.0',
+		config,
+		packageJson = {},
+		files: pluginFiles = {},
+		linkFrom
+	} of plugins) {
 		const packageDir = path.join('node_modules', packageName)
+
+		if (linkFrom) {
+			fs.mkdirSync(path.dirname(path.join(dir, packageDir)), { recursive: true })
+			fs.symlinkSync(linkFrom, path.join(dir, packageDir), 'junction')
+			continue
+		}
 
 		writeFile(dir, path.join(packageDir, 'package.json'), { name: packageName, version, ...packageJson })
 

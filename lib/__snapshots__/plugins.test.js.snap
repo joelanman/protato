@@ -6,30 +6,37 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
     {
       "filePath": "<dir>/node_modules/protato/plugin/assets/images",
       "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/images",
+      "type": "directory",
     },
     {
       "filePath": "<dir>/node_modules/protato/plugin/assets/javascripts/kit.js",
       "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/kit.js",
+      "type": "file",
     },
     {
       "filePath": "<dir>/node_modules/protato/plugin/assets/javascripts/auto-store-data.js",
       "serverPath": "/plugin-assets/govuk-prototype-kit/plugin/assets/javascripts/auto-store-data.js",
+      "type": "file",
     },
     {
       "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk/assets",
       "serverPath": "/plugin-assets/govuk-frontend/dist/govuk/assets",
+      "type": "directory",
     },
     {
       "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk/govuk-frontend.min.js.map",
       "serverPath": "/plugin-assets/govuk-frontend/dist/govuk/govuk-frontend.min.js.map",
+      "type": "file",
     },
     {
       "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk/govuk-frontend.min.js",
       "serverPath": "/plugin-assets/govuk-frontend/dist/govuk/govuk-frontend.min.js",
+      "type": "file",
     },
     {
       "filePath": "<dir>/node_modules/govuk-frontend/dist/govuk-prototype-kit/init.js",
       "serverPath": "/plugin-assets/govuk-frontend/dist/govuk-prototype-kit/init.js",
+      "type": "file",
     },
   ],
   "baseLayoutPaths": [
