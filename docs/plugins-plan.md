@@ -55,7 +55,7 @@ The plan for plugin support in Protato and the plugins management UI.
   - T8: Known plugins and read-only `/plugins` page *(initial implementation needs rework after review)*
   - T9: Registry versions and target-version plugin configs
   - ✅ T10: Fixed Windows-compatible npm commands (lifecycle coordinated in T12)
-  - T11: Pure install/update/uninstall planner (`pluginDependencies` and dependents)
+  - T11: Pure install/update/uninstall planner (`pluginDependencies` and dependents) ✅
   - T12: Background install jobs in the dev server
   - T13: Extend `/plugins` with install/update/uninstall confirmation and progress
   - T14: Watching `package.json` for CLI installs
@@ -195,7 +195,7 @@ All three tasks pass local `npm test`, including lint and real-file rendering/HT
 
 1. **Initial list:** offer `govuk-frontend`, `@govuk-prototype-kit/common-templates`, `@govuk-prototype-kit/step-by-step`, `@ministryofjustice/frontend` and `hmrc-frontend`. Do not offer jQuery or Notify while proxy configs are deferred. Keep `protato` visible as a protected installed package, with no self-update/uninstall action in this UI. Protect GOV.UK Frontend from uninstall, but allow updates.
 2. **Versions:** install/update to the registry's stable `latest` version, pinned exactly in project `dependencies`. No version picker, prereleases, downgrade action or update-all in this phase. If `latest` is older than the installed version, do not offer an update. Local/file/Git/npm-alias declarations are shown read-only rather than silently converted to registry dependencies.
-3. **Dependencies:** read `pluginDependencies` from the exact target version's config before changing anything. Show all planned changes on a confirmation page. Add missing plugin dependencies and update incompatible ones only when needed and explicitly confirmed; do not change unrelated plugins automatically. Treat `minVersion`/`maxVersion` as inclusive. Block unresolved/conflicting constraints rather than building a general dependency solver or silently trying older top-level versions.
+3. **Dependencies:** read `pluginDependencies` from the exact target version's config before changing anything. Show all planned changes on a confirmation page. Add missing plugin dependencies and update incompatible ones only when needed and explicitly confirmed; do not change unrelated plugins automatically. Treat `minVersion`/`maxVersion` as inclusive. An incompatible installed dependency may be moved backwards when only an older version satisfies the constraints; a plan never downgrades a package unless that is required, and the confirmation page must show it as a downgrade. Block unresolved/conflicting constraints rather than building a general dependency solver or silently trying older top-level versions.
 4. **Uninstall:** include installed plugins that depend on the target, recursively, in the proposed removal plan. Require confirmation of the full list. Block if removal would include a protected package or a package outside the known list; do not silently break or remove an unknown plugin. Do not automatically remove newly unused dependencies.
 5. **Unknown packages:** display directly installed plugins with readable kit configs as read-only. Allow UI changes only to known packages, including every dependency added/updated/removed by a plan (D3). Unknown/local plugins still participate in dependency checks so a known-package action cannot silently break them.
 6. **Dependencies worth adding:** propose `semver` for version constraints, `tar-stream` to read one config entry from a gzipped npm archive without extracting files, and `cross-spawn` for npm invocation on Windows. Review maintenance/current versions before adding each. Native `fetch`, `node:zlib` and existing Express/Chokidar cover the rest. Do not add a registry SDK, queue library or frontend framework.
@@ -302,7 +302,7 @@ await runPluginNpm({
 - Windows CI still needs to confirm `taskkill` and the `UNKNOWN_CLEANUP` case.
 - Local `npm test` passes.
 
-### T11 — Plan changes without side effects
+### ✅ T11 — Plan changes without side effects (Done)
 
 **Files:** new `lib/plugin-plan.js` and tests. The planner takes plain data, with no filesystem/network reads. If its caller needs the same package reads as the management route, extract a small shared management helper at this point, based on that actual use; do not restore a general catalog abstraction.
 
@@ -321,6 +321,19 @@ await runPluginNpm({
 - Shared dependencies, cycles, conflicting ranges, unknown required plugins, missing metadata/config and constraints from unknown/local installed plugins.
 - Direct/recursive dependents on uninstall, protected packages, no orphan cleanup and no mutation of input data.
 - Deterministic plans and explicit no-op plans when the requested state already holds.
+
+**Done**
+
+- `lib/plugin-plan.js` exports `planPluginChanges(input)`. It is pure: callers supply installed plugin data and registry metadata/configs, and the planner performs no filesystem or network reads, no npm commands and no process control. It does not modify its input.
+- The input contract is documented with JSDoc typedefs and lightly validated: the package lists must be arrays, installed entries must be objects, and install/update needs a registry object (`packages` and `configs` maps). Malformed input returns `INVALID_REQUEST` problems instead of throwing. `registry.configs` is keyed `package@version` and holds the raw plugin config (`pluginDependencies`), not the registry wrapper object. Uninstall does not need registry data.
+- Results are `{ operation, requested, ok, noop, changes, problems }`. `changes` are exact installs, updates, downgrades or removals with installed version, `reason` (`requested`, `dependency` or `dependent`) and `requiredBy`. Downgrades carry `action: 'downgrade'` so confirmation copy can call them out. Planning is complete only when `ok` is true.
+- Missing data is explicit: a problem with `type: 'missing'` has `data: 'metadata'` or `data: 'config'`, plus the package and version, so the caller fetches it and reruns the planner. Blocking errors have `type: 'error'`. Nothing async is hidden inside planning.
+- Dependencies are resolved from normalised `pluginDependencies` (strings or `{ packageName, minVersion?, maxVersion? }` objects) using inclusive bounds and stable registry versions. Prereleases are rejected as target versions and ignored in registry metadata. Installed dependencies are kept when they satisfy the constraints. Otherwise the planner chooses the highest stable version within the bounds, which may be older than the installed version, and inspects that exact version's config. Shared dependencies are deduplicated and cycles terminate.
+- Resolution walks the target dependency graph and repeats after new constraints are found. If a later plugin requires an older version of a newly proposed dependency, that earlier choice is narrowed and any sub-dependencies of the discarded version are dropped. Dependencies may move backwards when an installed version is newer than the constraints allow; the plan reports the change as `action: 'downgrade'`. A downgrade is blocked with `CONFLICT` when it would break another installed plugin or when no stable version satisfies all constraints. The requested target version is never changed automatically, though a caller may explicitly request an older exact version (the `/plugins` UI only offers the latest stable). Each pass resolves one level of new dependencies, so chain depth is not capped; the loop only stops early when a selection repeats. There is no general backtracking solver or retry-until-anything-works search.
+- Constraints from installed plugins that are not changing are included when they apply to packages in the target dependency graph, including unknown/local plugins, without modifying unrelated installed plugins. Packages added or changed by a plan must be known and not read-only. Unreadable installed dependency metadata blocks install/update and uninstall rather than being treated as no dependencies (the package being uninstalled is exempt).
+- Uninstall computes recursive installed dependents, records all removed dependencies on each dependent regardless of input ordering, applies protected/known/read-only policies to every removal, and does not remove newly unused dependencies. A package that is not installed produces an explicit no-op.
+- `lib/plugin-plan.test.js` covers string/object requirements, inclusive bounds, installs, updates, dependency downgrades, downgrades blocked by other installed plugins, explicit target downgrades, exact-version configs, multiple levels and long chains, prerelease handling, shared dependencies, cycles, conflicts, unknown/read-only packages, missing metadata/config with reruns, unknown/local constraints, unrelated installed plugins, invalid declarations, malformed input, no-op plans, deterministic results and input immutability. Uninstall tests cover recursive dependents, protected/unknown/read-only policies, unreadable metadata, no orphan cleanup and planning without registry data.
+- No dependencies, dev-server wiring, registry fetching or UI changes were added in this task. Local `npm test` passes: 358 unit tests (3 skipped), 10 end-to-end tests and lint.
 
 ### T12 — Coordinate background jobs in the dev server
 
