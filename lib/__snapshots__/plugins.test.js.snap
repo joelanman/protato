@@ -54,7 +54,6 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
   ],
   "functionPaths": [
     "<dir>/node_modules/protato/plugin/functions.js",
-    "<dir>/node_modules/govuk-frontend/dist/govuk-prototype-kit/functions.js",
   ],
   "macros": [
     {
@@ -106,6 +105,10 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
       "path": "govuk/components/exit-this-page/macro.njk",
     },
     {
+      "name": "govukFeedback",
+      "path": "govuk/components/feedback/macro.njk",
+    },
+    {
       "name": "govukFieldset",
       "path": "govuk/components/fieldset/macro.njk",
     },
@@ -116,6 +119,10 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
     {
       "name": "govukFooter",
       "path": "govuk/components/footer/macro.njk",
+    },
+    {
+      "name": "govukGenericHeader",
+      "path": "govuk/components/generic-header/macro.njk",
     },
     {
       "name": "govukHeader",
@@ -136,6 +143,10 @@ exports[`Plugins > a real project with protato, govuk-frontend and common templa
     {
       "name": "govukLabel",
       "path": "govuk/components/label/macro.njk",
+    },
+    {
+      "name": "govukLanguageNavigation",
+      "path": "govuk/components/language-navigation/macro.njk",
     },
     {
       "name": "govukNotificationBanner",

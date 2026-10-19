@@ -58,7 +58,7 @@ The plan for plugin support in Protato and the plugins management UI.
   - T11: Pure install/update/uninstall planner (`pluginDependencies` and dependents) ✅
   - T12: Coordinate plugin updates in the dev server ✅
   - T13: Extend `/plugins` with install/update/uninstall confirmation and actions ✅
-  - T14: Watching `package.json` for CLI installs
+  - T14: Watching `package.json` for CLI installs ✅
 
 ---
 
@@ -379,9 +379,9 @@ await runPluginNpm({
 - `GET /plugins/confirm` and `POST /plugins/confirm` share `buildActionPlan()` and render `manage-prototype/views/plugin-confirm.njk` for confirmation, blocking problems, and execution errors.
 - `POST /plugins/confirm` checks the form token and origin, re-plans from fresh state, verifies that `expectedChanges` matches the confirmed plan, runs `devServer.updatePlugins()`, and redirects to `/manage-prototype/plugins?updated=1` on success.
 
-### T14 — Refresh after command-line package changes
+### ✅ T14 — Refresh after command-line package changes (Done)
 
-**Files:** `lib/watch.js`, `lib/dev-server.js` as needed, watcher and integration tests.
+**Files:** `lib/watch.js`, `lib/dev-server.js`, `lib/watch.test.js`, `lib/dev-server.test.js`, `tests/server.test.js`.
 
 **Changes**
 
@@ -396,6 +396,16 @@ await runPluginNpm({
 - Add/remove/change dependency declarations, lockfile-only version changes, unchanged/format-only edits and package-file replacement.
 - Burst events produce one refresh; events from a UI update do not cause an extra restart. Invalid intermediate JSON can recover on a later valid event.
 - A fake CLI install changing real project files becomes visible to both prototype rendering and the management list without restarting the dev server. Run Windows CI for path, watcher and process behaviour.
+
+**Done**
+
+- `lib/watch.js` watches the project directory at depth 0 and filters for the two package files, so editor-style replacement (`unlink` then `add`) is handled without watching `node_modules` or subdirectories. Package events are coalesced with a 300ms timer.
+- `readProjectPackageState()` reduces the project to declared `dependencies` plus each lockfile-resolved version, looked up directly as `node_modules/<packageName>` in `package-lock.json`. Formatting, scripts and unrelated lockfile changes do not alter that state and do not refresh. Transitive-only lockfile changes are ignored. Keeping this simple means no legacy lockfile or `node_modules` fallbacks.
+- Invalid or temporarily missing package files log `Protato: could not read …` and wait for the next package file event rather than running a retry ladder.
+- `devServer.refreshPlugins()` stops the prototype, clears the plugin cache, rebuilds Sass and base layouts, starts the prototype once and reloads. It never runs npm.
+- `devServer.updatePlugins()` calls `syncPackageState()` after finishing so package events caused by a UI install or uninstall do not trigger a second restart. Package events during `updatingPlugins` are ignored.
+- Tests cover dependency additions/changes/removals, burst coalescing, editor replacement, lockfile-only versions, unrelated and formatting-only edits, out-of-root paths, events during UI updates and invalid JSON recovery on a later event. A real end-to-end test performs a fake command-line install and checks both prototype rendering and the management list on the same dev server. The end-to-end startup helper now ignores Sass `WARNING:` output, and the plugin macro snapshot and GOV.UK green assertion were updated for the starter's installed `govuk-frontend` version.
+- Local `npm test` passes: 402 unit tests (3 skipped), 11 end-to-end tests and lint.
 
 ### Phase 3 completion
 
