@@ -56,8 +56,8 @@ The plan for plugin support in Protato and the plugins management UI.
   - T9: Registry versions and target-version plugin configs
   - ✅ T10: Fixed Windows-compatible npm commands (lifecycle coordinated in T12)
   - T11: Pure install/update/uninstall planner (`pluginDependencies` and dependents) ✅
-  - T12: Background install jobs in the dev server
-  - T13: Extend `/plugins` with install/update/uninstall confirmation and progress
+  - T12: Coordinate plugin updates in the dev server ✅
+  - T13: Extend `/plugins` with install/update/uninstall confirmation and actions
   - T14: Watching `package.json` for CLI installs
 
 ---
@@ -335,63 +335,59 @@ await runPluginNpm({
 - `lib/plugin-plan.test.js` covers string/object requirements, inclusive bounds, installs, updates, dependency downgrades, downgrades blocked by other installed plugins, explicit target downgrades, exact-version configs, multiple levels and long chains, prerelease handling, shared dependencies, cycles, conflicts, unknown/read-only packages, missing metadata/config with reruns, unknown/local constraints, unrelated installed plugins, invalid declarations, malformed input, no-op plans, deterministic results and input immutability. Uninstall tests cover recursive dependents, protected/unknown/read-only policies, unreadable metadata, no orphan cleanup and planning without registry data.
 - No dependencies, dev-server wiring, registry fetching or UI changes were added in this task. Local `npm test` passes: 358 unit tests (3 skipped), 10 end-to-end tests and lint.
 
-### T12 — Coordinate background jobs in the dev server
+### ✅ T12 — Coordinate plugin updates in the dev server (Done)
 
-**Files:** new `lib/plugin-jobs.js` and tests, `lib/dev-server.js`, `lib/watch.js`, related tests; small management-app injection changes if needed.
+**Files:** `lib/dev-server.js`, `lib/watch.js`, `lib/build.js`, and their tests.
 
 **Changes**
 
-- Own jobs in the dev-server process, where they survive prototype restarts. Pass the service into the management app explicitly; avoid a circular chain of routes importing the dev server importing routes.
-- On submission, re-read state and verify the confirmed plan is still current. A changed plan requires a new confirmation; do not silently execute different changes or a newer `latest` version.
-- Claim the busy slot synchronously before async work. Record simple states such as stopping, running npm, rebuilding, restarting, succeeded and failed, plus bounded diagnostic output.
-- Stop the prototype and await its exit before npm starts. After npm has stopped, re-read installed package information, invalidate registry/runtime caches, rebuild Sass and generated macro layouts, and restart using the new build result. Clear stale generated layouts before rebuilding. If process cleanup fails or is unknown, keep the prototype stopped, block further mutation and show recovery instructions instead of restarting.
-- On dev-server shutdown, stop any running npm job and wait for its process-tree cleanup before exiting. A detached npm process must not keep changing the project after the dev server has gone. The in-memory busy flag cannot detect a process left by an earlier server, so do not rely on it across restarts.
-- Coordinate existing backend/Sass watcher callbacks so none can restart/build against partially changed packages. Coalesce changes during the job into the single post-job rebuild/restart, including on failure. Do not add a generic scheduling framework.
-- The management app and job status remain available while the prototype is stopped or broken. Track npm outcome separately from a prototype build/startup problem, and release the busy slot in every completion path.
-- While npm runs, prototype requests receive a clear temporary-unavailable response instead of a raw proxy connection failure.
+- Because `/manage-prototype` runs in the parent `dev-server` process and stays alive while the child prototype process restarts, no background job service, polling endpoint, or dependency-injection wiring is needed.
+- Add `devServer.updatePlugins(plan)`: stop the prototype child process, run `runPluginNpm(plan)`, clear the plugin cache, rebuild Sass and base layouts (`buildPrototype()`), update the watcher's build result, restart the prototype child process, and trigger `livereload.reload()`.
+- Clear `.tmp/views` in `writeBaseLayouts()` before regenerating base layouts so removed plugins do not leave stale layout files behind.
+- Set `devServer.updatingPlugins = true` while running so overlapping calls are rejected, watcher callbacks (`watch.js`) and `restartPrototype()` are skipped during the update, and prototype requests receive a 503 response while the child process is stopped.
+- Still rebuild and restart the prototype in `finally` if `npm` fails, unless process-tree cleanup failed (`CLEANUP_FAILED`).
 
-**Acceptance tests**
+**Done**
 
-- Assert lifecycle order: stop completes → npm → fresh state/cache invalidation → rebuild → restart → reload. No overlapping mutation jobs.
-- Stop/spawn/npm/build/restart failures, no-op/stale plans, bounded job history and unknown job IDs.
-- Fire backend/Sass/package events during npm and verify no premature restart or duplicate final rebuild; management/status remain accessible.
-- Integration with a fake npm executable and real temporary files: the child is stopped before files change, and the restarted prototype sees newly added/removed templates, filters and styles.
+- `lib/dev-server.js` adds `devServer.updatePlugins(plan)`, `updatingPlugins` guard, and a 503 middleware while plugins are updating.
+- `lib/watch.js` exports `setBuildResult(result)` and skips watcher actions while `devServer.updatingPlugins` is `true`.
+- `lib/build.js` clears `.tmp/views` in `writeBaseLayouts()`.
 
-### T13 — Add plugin actions, confirmation and progress
+### T13 — Add plugin actions and confirmation
 
-**Files:** existing `manage-prototype/routes/plugins.js` and tests, `manage-prototype/dev-app.js`, existing plugin listing view plus confirmation/progress views, a small management JavaScript file only if polling needs it.
+**Files:** existing `manage-prototype/routes/plugins.js` and tests, existing plugin listing view plus confirmation view.
 
 **Changes**
 
 - Extend T8's existing list with latest-version/update information and working actions, retaining its installed-state diagnostics and protected/read-only explanations. Preserve `{ name, publisher }` naming and usable offline installed information. Do not rebuild the list or introduce another package-data layer.
-- Use a small server-rendered flow: list → confirmation of the exact plan → POST to start a job → progress/result. One shared flow for install/update/uninstall, not separate near-identical handlers.
-- Submit package/action identifiers and the server-issued confirmation identifier/token, not trusted change lists or shell arguments. Validate all input on the server, enforce request protection and revalidate plan freshness in T12.
+- Use a small server-rendered flow: list → confirmation of the exact plan → POST to execute `devServer.updatePlugins(npmPlan)` → redirect/render result. One shared flow for install/update/uninstall, not separate near-identical handlers.
+- Submit package/action identifiers and re-verify the plan on POST, not trusted change lists or shell arguments. Validate all input on the server and enforce request protection.
 - Show dependencies/dependents and every proposed change before confirmation. Disable inappropriate actions, but enforce the same policies server-side.
-- Poll a read-only job-status endpoint while processing, stopping on terminal status. Provide a normal refresh link too; do not require WebSockets or a frontend framework. Escape output/logs and do not present registry metadata as trusted HTML.
-- Mount routes only in the development management app. Production has no plugin mutation endpoints. Keep management static assets available while the prototype is stopped.
+- Escape output/logs and do not present registry metadata as trusted HTML.
+- Mount routes only in the development management app. Production has no plugin mutation endpoints.
 
 **Acceptance tests**
 
-- List/confirmation/progress/success/failure rendering; install/update/uninstall; protected, unknown and local packages; offline and stale-plan messages.
-- Invalid action/name/job/token, cross-origin POST, duplicate submission/busy state and escaped metadata/npm output. GET requests never mutate.
+- List/confirmation/success/failure rendering; install/update/uninstall; protected, unknown and local packages; offline and stale-plan messages.
+- Invalid action/name/token, cross-origin POST, duplicate submission/busy state and escaped metadata/npm output. GET requests never mutate.
 - Production cannot invoke the endpoints. Real browser-facing flow against fake registry/npm fixtures verifies that the management UI survives the prototype restart and shows the resulting installed state.
 
 ### T14 — Refresh after command-line package changes
 
-**Files:** `lib/watch.js`, `lib/dev-server.js`/job coordination as needed, watcher and integration tests.
+**Files:** `lib/watch.js`, `lib/dev-server.js` as needed, watcher and integration tests.
 
 **Changes**
 
 - Watch project `package.json` and `package-lock.json` outside `node_modules`. Debounce/coalesce changes and handle editor-style replacement, not only a single `change` event.
 - React to relevant dependency/installed-version changes, not every formatting or unrelated-script edit. A lockfile change matters when the installed version changes without a declaration change.
-- Re-read installed state, clear caches, regenerate layouts and Sass, restart the prototype once and reload. Reuse T12's coordination rather than creating a second restart pipeline.
-- During a UI job, absorb its package events into that job's final refresh. For CLI operations, wait for package files to settle and tolerate incomplete/temporarily invalid files with a useful diagnostic and later retry. Do not claim that file watching can determine exactly when an external npm process has finished.
+- Re-read installed state, clear caches, regenerate layouts and Sass, restart the prototype once and reload.
+- Ignore package events while `devServer.updatingPlugins` is `true`. For CLI operations, wait for package files to settle and tolerate incomplete/temporarily invalid files with a useful diagnostic and later retry.
 - Do not install/uninstall anything in response to file changes. CLI-installed unknown plugins remain usable at runtime and read-only in the UI.
 
 **Acceptance tests**
 
 - Add/remove/change dependency declarations, lockfile-only version changes, unchanged/format-only edits and package-file replacement.
-- Burst events produce one refresh; events from a UI job do not cause an extra restart. Invalid intermediate JSON can recover on a later valid event.
+- Burst events produce one refresh; events from a UI update do not cause an extra restart. Invalid intermediate JSON can recover on a later valid event.
 - A fake CLI install changing real project files becomes visible to both prototype rendering and the management list without restarting the dev server. Run Windows CI for path, watcher and process behaviour.
 
 ### Phase 3 completion
