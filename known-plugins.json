@@ -4,7 +4,9 @@
 		"@govuk-prototype-kit/common-templates",
 		"@govuk-prototype-kit/step-by-step",
 		"@ministryofjustice/frontend",
-		"hmrc-frontend"
+		"hmrc-frontend",
+		"jquery",
+		"notifications-node-client"
 	],
 	"protected": ["protato", "govuk-frontend"]
 }

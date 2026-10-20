@@ -17,6 +17,7 @@ export function mockProjectPaths({ projectDir, packageDir = repoRoot } = {}) {
 	return {
 		project: projectDir,
 		package: packageDir,
+		app: path.join(projectDir, 'app'),
 		managePrototype: {
 			views: path.join(repoRoot, 'manage-prototype', 'views'),
 			govukFrontend: path.join(repoRoot, 'node_modules', 'govuk-frontend'),
