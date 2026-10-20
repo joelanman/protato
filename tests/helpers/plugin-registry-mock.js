@@ -64,10 +64,13 @@ export function resetRegistryMock(mock, { latest = {}, configs = {}, errors = {}
 			throw new Error(mock.errors[key])
 		}
 
+		const pluginDependencies = mock.configs[key] ?? []
+
 		return {
 			packageName,
 			version,
-			config: { pluginDependencies: mock.configs[key] ?? [] }
+			config: { pluginDependencies },
+			pluginDependencies
 		}
 	})
 
