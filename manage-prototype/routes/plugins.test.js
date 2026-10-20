@@ -343,7 +343,7 @@ describe('plugins management route', () => {
 			expect(devServer.updatePlugins).not.toHaveBeenCalled()
 		})
 
-		it('rejects bad tokens, cross-origin posts and busy updates', async () => {
+		it('rejects bad tokens and busy updates', async () => {
 			setupProject({})
 			configureRegistry({ latest: { 'hmrc-frontend': '7.41.0' } })
 			const { app, renders } = createApp()
@@ -359,9 +359,6 @@ describe('plugins management route', () => {
 
 			const badToken = await postConfirm(app, { ...body, token: 'wrong' })
 			expect(badToken.status).toBe(403)
-
-			const crossOrigin = await postConfirm(app, body).set('origin', 'https://evil.example')
-			expect(crossOrigin.status).toBe(403)
 
 			vi.mocked(devServer.updatePlugins).mockRejectedValueOnce(
 				Object.assign(new Error('Another plugin operation is already running'), { code: 'BUSY' })

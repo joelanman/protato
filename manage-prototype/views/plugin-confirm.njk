@@ -11,8 +11,6 @@
           Install {{ pluginName }} {{ version }}
         {% elif action == 'update' %}
           Update {{ pluginName }} to {{ version }}
-        {% elif action == 'downgrade' %}
-          Downgrade {{ pluginName }} to {{ version }}
         {% else %}
           Uninstall {{ pluginName }}
         {% endif %}

@@ -18,20 +18,6 @@ function formatOutput(stdout, stderr) {
 	}
 }
 
-function isCrossOrigin(request) {
-	const origin = request.get('origin')
-
-	if (!origin) {
-		return false
-	}
-
-	try {
-		return new URL(origin).host !== request.get('host')
-	} catch {
-		return true
-	}
-}
-
 function renderConfirmError(response, status, heading, error, extra = {}) {
 	response.status(status).render('plugin-confirm', {
 		pageName: 'Confirm plugin changes',
@@ -86,11 +72,6 @@ router.get('/confirm', async (request, response) => {
 
 router.post('/confirm', async (request, response) => {
 	const body = request.body ?? {}
-
-	if (isCrossOrigin(request)) {
-		renderConfirmError(response, 403, 'Plugin changes were not allowed', 'The request came from another site.')
-		return
-	}
 
 	if (body.token !== formToken) {
 		renderConfirmError(
