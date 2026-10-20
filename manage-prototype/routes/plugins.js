@@ -7,6 +7,16 @@ import { addUpdateState, buildActionPlan, buildNpmPlan, readPlugins } from '../.
 
 const router = express.Router()
 const formToken = randomBytes(16).toString('hex')
+const MAX_OUTPUT_CHARS = 64 * 1024
+
+function formatOutput(stdout, stderr) {
+	const raw = [stdout, stderr].filter(Boolean).join('\n').trim()
+
+	return {
+		output: raw.length > MAX_OUTPUT_CHARS ? raw.slice(-MAX_OUTPUT_CHARS) : raw,
+		outputTruncated: raw.length > MAX_OUTPUT_CHARS
+	}
+}
 
 function isCrossOrigin(request) {
 	const origin = request.get('origin')
@@ -127,29 +137,27 @@ router.post('/confirm', async (request, response) => {
 		const npmResult = await devServer.updatePlugins(buildNpmPlan(result.plan))
 
 		if (!npmResult?.ok) {
-			const output = [npmResult?.stdout, npmResult?.stderr].filter(Boolean).join('\n').trim()
 			renderConfirmError(
 				response,
 				500,
 				'npm could not update the plugins',
 				'The project was rebuilt and the prototype restarted. Check the npm output below.',
-				{ output, outputTruncated: Boolean(npmResult?.outputTruncated) }
+				formatOutput(npmResult?.stdout, npmResult?.stderr)
 			)
 			return
 		}
 
 		response.redirect(303, '/manage-prototype/plugins?updated=1')
 	} catch (error) {
-		const isBusy = error.message === 'Another plugin operation is already running'
-		const status = isBusy ? 409 : 500
-		const message =
-			error.code === 'CLEANUP_FAILED' ? `${error.message} Restart the dev server before trying again.` : error.message
-		const output = [error.result?.stdout, error.result?.stderr].filter(Boolean).join('\n').trim()
+		const status = error.code === 'BUSY' ? 409 : 500
 
-		renderConfirmError(response, status, 'The plugin update failed', message, {
-			output,
-			outputTruncated: Boolean(error.result?.outputTruncated)
-		})
+		renderConfirmError(
+			response,
+			status,
+			'The plugin update failed',
+			error.message,
+			formatOutput(error.result?.stdout, error.result?.stderr)
+		)
 	}
 })
 

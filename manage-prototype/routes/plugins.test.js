@@ -363,7 +363,9 @@ describe('plugins management route', () => {
 			const crossOrigin = await postConfirm(app, body).set('origin', 'https://evil.example')
 			expect(crossOrigin.status).toBe(403)
 
-			vi.mocked(devServer.updatePlugins).mockRejectedValueOnce(new Error('Another plugin operation is already running'))
+			vi.mocked(devServer.updatePlugins).mockRejectedValueOnce(
+				Object.assign(new Error('Another plugin operation is already running'), { code: 'BUSY' })
+			)
 			const busy = await postConfirm(app, body)
 			expect(busy.status).toBe(409)
 			expect(renders.at(-1).model.error).toContain('already running')
