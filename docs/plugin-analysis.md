@@ -25,19 +25,19 @@ read end to end.
 
 | Area | Protato | Kit |
 | --- | ---: | ---: |
-| Page state and action orchestration (`lib/plugin-management.js`, `lib/known-plugins.js`) | 369 | 344 |
-| Dependency planning (`lib/plugin-plan.js`) | 419 | 278 |
+| Page state and action orchestration (`lib/plugin-management.js`, `lib/known-plugins.js`) | 341 | 344 |
+| Dependency planning (`lib/plugin-plan.js`) | 460 | 278 |
 | Dependency and package validation (`lib/plugin-dependencies.js`) | 82 | inside the kit's plugin modules |
 | Registry and config access (`lib/plugin-registry.js`, `lib/plugin-proxy.js`) | 355 | inside `packages.js` and `lib/utils/requestHttps.js` |
 | npm execution (`lib/plugin-npm.js`) | 120 | inside the handler, via `exec` |
 | HTTP route (`manage-prototype/routes/plugins.js`) | 139 | inside the handler |
 | Views | 242 | 282 |
 | Browser script | 0 | `manage-plugins.js` 172 |
-| **Production total** | **1,726** | **1,076** |
-| Unit and integration tests | 1,992 | 583 |
+| **Production total** | **1,739** | **1,076** |
+| Unit and integration tests | 2,032 | 583 |
 | Cypress e2e and fixtures | 0 | 1,468 |
-| **Test total** | **1,992** | **2,051** |
-| Test lines per production line | 1.15 | 1.91 |
+| **Test total** | **2,032** | **2,051** |
+| Test lines per production line | 1.17 | 1.91 |
 
 The kit's figure excludes the runtime plugin loader and validator, which sit
 next to but outside its management path. Protato's figure includes its runtime
