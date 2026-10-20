@@ -25,18 +25,18 @@ read end to end.
 
 | Area | Protato | Kit |
 | --- | ---: | ---: |
-| Page state and action orchestration (`lib/plugin-management.js`, `lib/known-plugins.js`) | 337 | 344 |
-| Dependency planning (`lib/plugin-plan.js`) | 371 | 278 |
-| Registry and config access (`lib/plugin-registry.js`, `lib/plugin-proxy.js`) | 507 | inside `packages.js` and `lib/utils/requestHttps.js` |
-| npm execution (`lib/plugin-npm.js`) | 151 | inside the handler, via `exec` |
-| HTTP route (`manage-prototype/routes/plugins.js`) | 145 | inside the handler |
+| Page state and action orchestration (`lib/plugin-management.js`, `lib/known-plugins.js`) | 332 | 344 |
+| Dependency planning (`lib/plugin-plan.js`) | 415 | 278 |
+| Registry and config access (`lib/plugin-registry.js`, `lib/plugin-proxy.js`) | 438 | inside `packages.js` and `lib/utils/requestHttps.js` |
+| npm execution (`lib/plugin-npm.js`) | 120 | inside the handler, via `exec` |
+| HTTP route (`manage-prototype/routes/plugins.js`) | 139 | inside the handler |
 | Views | 242 | 282 |
 | Browser script | 0 | `manage-plugins.js` 172 |
-| **Production total** | **1,753** | **1,076** |
-| Unit and integration tests | 2,037 | 583 |
+| **Production total** | **1,686** | **1,076** |
+| Unit and integration tests | 1,996 | 583 |
 | Cypress e2e and fixtures | 0 | 1,468 |
-| **Test total** | **2,037** | **2,051** |
-| Test lines per production line | 1.16 | 1.91 |
+| **Test total** | **1,996** | **2,051** |
+| Test lines per production line | 1.18 | 1.91 |
 
 The kit's figure excludes the runtime plugin loader and validator, which sit
 next to but outside its management path. Protato's figure includes its runtime
@@ -45,7 +45,11 @@ proxy config support but not the general runtime loader (`lib/plugins.js`).
 The largest remaining Protato modules are the registry client and the planner.
 Both are larger than the kit's equivalents because they do work the kit does
 not: bounded HTTPS downloads, in-memory archive config extraction and
-constraint-based dependency planning.
+constraint-based dependency planning. The planner resolves dependencies in one
+pass and reports a late conflict rather than re-planning to a fixed point.
+The registry client is now npm access only. Proxy configs are resolved by the
+management layer, so the registry cache cannot go stale when
+`app/plugin-proxy.json` changes.
 
 ## What each one does
 
@@ -78,8 +82,8 @@ the allowlist on POST.
 manage-prototype/routes/plugins.js
         ↓
 lib/plugin-management.js ────────→ lib/plugin-registry.js
-        ↓                                  ↓
-lib/plugin-plan.js (async, injected) ── lib/plugin-proxy.js
+        ↓
+lib/plugin-plan.js (async, injected) ← lib/plugin-proxy.js
         ↓
 lib/dev-server.js → lib/plugin-npm.js
 ```
