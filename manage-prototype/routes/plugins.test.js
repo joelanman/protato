@@ -11,7 +11,6 @@ const { mockRegistry } = vi.hoisted(() => ({
 		configs: {},
 		errors: {},
 		getPackageMetadata: vi.fn(),
-		getUpdateInfo: vi.fn(),
 		getConfig: vi.fn()
 	}
 }))

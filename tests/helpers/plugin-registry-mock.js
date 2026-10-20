@@ -1,4 +1,3 @@
-import semver from 'semver'
 import { vi } from 'vitest'
 
 /**
@@ -22,7 +21,6 @@ export function createRegistryMock(options) {
 			configs: {},
 			errors: {},
 			getPackageMetadata: vi.fn(),
-			getUpdateInfo: vi.fn(),
 			getConfig: vi.fn()
 		},
 		options
@@ -41,20 +39,6 @@ export function resetRegistryMock(mock, { latest = {}, configs = {}, errors = {}
 
 		const version = mock.latest[packageName] ?? '1.0.0'
 		return { packageName, latestVersion: version, stableVersions: [version] }
-	})
-
-	mock.getUpdateInfo.mockImplementation(async (packageName, installedVersion) => {
-		if (mock.errors[packageName]) {
-			throw new Error(mock.errors[packageName])
-		}
-
-		const version = mock.latest[packageName] ?? '1.0.0'
-		return {
-			packageName,
-			installedVersion,
-			latestVersion: version,
-			updateAvailable: semver.gt(version, installedVersion)
-		}
 	})
 
 	mock.getConfig.mockImplementation(async (packageName, version) => {
