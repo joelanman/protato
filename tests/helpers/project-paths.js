@@ -9,14 +9,12 @@ const repoRoot = path.join(import.meta.dirname, '../..')
  *
  * @param {object} options
  * @param {string} options.projectDir the project being read
- * @param {string} [options.packageDir] the directory known-plugins.json is read
- *   from, defaults to this repo's root
  * @returns {object} a stand-in for getPaths()
  */
-export function mockProjectPaths({ projectDir, packageDir = repoRoot } = {}) {
+export function mockProjectPaths({ projectDir } = {}) {
 	return {
 		project: projectDir,
-		package: packageDir,
+		package: repoRoot,
 		app: path.join(projectDir, 'app'),
 		managePrototype: {
 			views: path.join(repoRoot, 'manage-prototype', 'views'),
