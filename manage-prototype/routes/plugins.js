@@ -132,13 +132,7 @@ router.post('/confirm', async (request, response) => {
 	} catch (error) {
 		const status = error.code === 'BUSY' ? 409 : 500
 
-		renderConfirmError(
-			response,
-			status,
-			'The plugin update failed',
-			error.message,
-			formatOutput(error.result?.stdout, error.result?.stderr)
-		)
+		renderConfirmError(response, status, 'The plugin update failed', error.message)
 	}
 })
 
