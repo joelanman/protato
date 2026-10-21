@@ -8,10 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const { mockRegistry } = vi.hoisted(() => ({
 	mockRegistry: {
 		latest: {},
+		versions: {},
 		configs: {},
 		errors: {},
-		getPackageMetadata: vi.fn(),
-		getConfig: vi.fn()
+		fetchPackageMetadata: vi.fn(),
+		fetchPluginConfig: vi.fn()
 	}
 }))
 
@@ -32,11 +33,12 @@ vi.mock('../../lib/dev-server.js', () => ({
 	}
 }))
 
-vi.mock('../../lib/plugin-registry.js', async (importOriginal) => {
+vi.mock('../../lib/npm-registry.js', async (importOriginal) => {
 	const actual = await importOriginal()
 	return {
 		...actual,
-		createPluginRegistry: vi.fn(() => mockRegistry)
+		fetchPackageMetadata: (...args) => mockRegistry.fetchPackageMetadata(...args),
+		fetchPluginConfig: (...args) => mockRegistry.fetchPluginConfig(...args)
 	}
 })
 
@@ -208,7 +210,6 @@ describe('plugins management route', () => {
 			expect(model.action).toBe('install')
 			expect(model.pluginName).toBe('HMRC Frontend')
 			expect(model.token).toMatch(/^[a-f0-9]{32}$/)
-			expect(model.expectedChanges).toBe('install:hmrc-frontend::7.41.0')
 		})
 
 		it('shows an offline message when the registry cannot check an install', async () => {
@@ -252,7 +253,7 @@ describe('plugins management route', () => {
 			expect(invalidAction.response.status).toBe(400)
 		})
 
-		it('confirms an install for a package outside the known list', async () => {
+		it('confirms an install for any valid package name', async () => {
 			setupProject({})
 
 			const { renders, response } = await getConfirmation({
@@ -263,7 +264,6 @@ describe('plugins management route', () => {
 
 			expect(response.status).toBe(200)
 			expect(renders[0].model.pluginName).toBe('Unknown Plugin')
-			expect(renders[0].model.expectedChanges).toBe('install:unknown-plugin::1.0.0')
 		})
 
 		it('executes the confirmed plan and redirects to the refreshed list', async () => {
@@ -280,17 +280,22 @@ describe('plugins management route', () => {
 
 			const response = await postConfirm(app, {
 				token: model.token,
-				expectedChanges: model.expectedChanges,
 				action: 'install',
 				packageName: 'hmrc-frontend'
 			})
 
 			expect(response.status).toBe(303)
 			expect(response.headers.location).toBe('/manage-prototype/plugins?updated=1')
-			expect(devServer.updatePlugins).toHaveBeenCalledWith({
-				operation: 'install',
-				packages: [{ packageName: 'hmrc-frontend', version: '7.41.0' }]
-			})
+			expect(devServer.updatePlugins).toHaveBeenCalledWith(
+				expect.objectContaining({
+					action: 'install',
+					packageName: 'hmrc-frontend',
+					version: '7.41.0',
+					ok: true,
+					noop: false,
+					changes: [expect.objectContaining({ packageName: 'hmrc-frontend', version: '7.41.0' })]
+				})
+			)
 		})
 
 		it('rejects a plan with blocking problems', async () => {
@@ -320,7 +325,6 @@ describe('plugins management route', () => {
 
 			const response = await postConfirm(app, {
 				token: model.token,
-				expectedChanges: model.expectedChanges,
 				action: 'update',
 				packageName: 'hmrc-frontend'
 			})
@@ -328,27 +332,6 @@ describe('plugins management route', () => {
 			expect(response.status).toBe(409)
 			expect(renders.at(-1).model.error).toBe('The plan has blocking problems.')
 			expect(renders.at(-1).model.problems.length).toBeGreaterThan(0)
-			expect(devServer.updatePlugins).not.toHaveBeenCalled()
-		})
-
-		it('rejects an old plan after the registry changes', async () => {
-			setupProject({})
-			configureRegistry({ latest: { 'hmrc-frontend': '7.41.0' } })
-			const { app, renders } = createApp()
-
-			await request(app).get('/manage-prototype/plugins/confirm?action=install&packageName=hmrc-frontend')
-			const model = renders[0].model
-			mockRegistry.latest['hmrc-frontend'] = '7.42.0'
-
-			const response = await postConfirm(app, {
-				token: model.token,
-				expectedChanges: model.expectedChanges,
-				action: 'install',
-				packageName: 'hmrc-frontend'
-			})
-
-			expect(response.status).toBe(409)
-			expect(renders.at(-1).model.error).toContain('Review the latest plugin plan')
 			expect(devServer.updatePlugins).not.toHaveBeenCalled()
 		})
 
@@ -361,7 +344,6 @@ describe('plugins management route', () => {
 			const model = renders[0].model
 			const body = {
 				token: model.token,
-				expectedChanges: model.expectedChanges,
 				action: 'install',
 				packageName: 'hmrc-frontend'
 			}
@@ -396,12 +378,11 @@ describe('plugins management route', () => {
 			)
 			const html = confirmResponse.text
 			const token = html.match(/name="token" value="([^"]+)"/)[1]
-			const expectedChanges = html.match(/name="expectedChanges" value="([^"]+)"/)[1]
 
 			const response = await request(app)
 				.post('/manage-prototype/plugins/confirm')
 				.type('form')
-				.send({ token, expectedChanges, action: 'install', packageName: 'hmrc-frontend' })
+				.send({ token, action: 'install', packageName: 'hmrc-frontend' })
 
 			expect(response.status).toBe(500)
 			expect(response.text).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
@@ -438,12 +419,11 @@ describe('plugins management route', () => {
 			expect(devServer.updatePlugins).not.toHaveBeenCalled()
 			const html = confirmResponse.text
 			const token = html.match(/name="token" value="([^"]+)"/)[1]
-			const expectedChanges = html.match(/name="expectedChanges" value="([^"]+)"/)[1]
 
 			const executeResponse = await request(app)
 				.post('/manage-prototype/plugins/confirm')
 				.type('form')
-				.send({ token, expectedChanges, action: 'install', packageName: 'hmrc-frontend' })
+				.send({ token, action: 'install', packageName: 'hmrc-frontend' })
 
 			expect(executeResponse.status).toBe(303)
 			expect(executeResponse.headers.location).toBe('/manage-prototype/plugins?updated=1')

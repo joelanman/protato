@@ -53,6 +53,7 @@ vi.mock('../lib/plugins.js', async (importOriginal) => {
 	const actual = await importOriginal()
 
 	return {
+		...actual,
 		default: {
 			...actual.default,
 			getTemplatesByPlugin: vi.fn(() => templatesByPlugin),

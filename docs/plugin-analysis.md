@@ -25,36 +25,36 @@ read end to end.
 
 | Area | Protato | Kit |
 | --- | ---: | ---: |
-| Page state and action orchestration (`lib/plugin-management.js`, `lib/known-plugins.js`) | 341 | 344 |
-| Dependency planning (`lib/plugin-plan.js`) | 460 | 278 |
-| Dependency and package validation (`lib/plugin-dependencies.js`) | 82 | inside the kit's plugin modules |
-| Registry and config access (`lib/plugin-registry.js`, `lib/plugin-proxy.js`) | 355 | inside `packages.js` and `lib/utils/requestHttps.js` |
-| npm execution (`lib/plugin-npm.js`) | 120 | inside the handler, via `exec` |
-| HTTP route (`manage-prototype/routes/plugins.js`) | 139 | inside the handler |
-| Views | 242 | 282 |
+| Listing, planning and npm execution (`lib/plugin-manager.js`) | 806 | handler and planner, 622 |
+| npm registry client (`lib/npm-registry.js`) | 229 | inside `packages.js` and `lib/utils/requestHttps.js` |
+| HTTP route (`manage-prototype/routes/plugins.js`) | 116 | inside the handler |
+| Views | 235 | 282 |
 | Browser script | 0 | `manage-plugins.js` 172 |
-| **Production total** | **1,739** | **1,076** |
-| Unit and integration tests | 2,032 | 583 |
+| **Production total** | **1,386** | **1,076** |
+| Unit and integration tests | 1,959 | 583 |
 | Cypress e2e and fixtures | 0 | 1,468 |
-| **Test total** | **2,032** | **2,051** |
-| Test lines per production line | 1.17 | 1.91 |
+| **Test total** | **1,959** | **2,051** |
+| Test lines per production line | 1.41 | 1.91 |
 
-The kit's figure excludes the runtime plugin loader and validator, which sit
-next to but outside its management path. Protato's figure includes its runtime
-proxy config support but not the general runtime loader (`lib/plugins.js`).
+Both figures exclude the runtime plugin loader and validator, which sit next to
+but outside the management path. Protato's shared runtime loader is
+`lib/plugins.js`; it also reads proxy configs for the management page.
 
-The largest remaining Protato modules are the planner and the registry client.
-Both are larger than the kit's equivalents because they do work the kit does
-not: bounded HTTPS downloads, in-memory archive config extraction and
-constraint-based dependency planning. The planner keeps its install state in
-one place, resolves dependencies in one pass and reports a late conflict rather
-than re-planning to a fixed point. Dependency declarations are parsed and
-validated in `lib/plugin-dependencies.js`, away from registry access.
+The largest remaining Protato module is the plugin manager, which holds
+listing, planning and npm execution. It is larger than the kit's equivalents
+because it does work the kit does not: bounded HTTPS downloads, in-memory
+archive config extraction and constraint-based dependency planning. The planner
+keeps its install state in one place, resolves dependencies in one pass and
+reports a late conflict rather than re-planning to a fixed point. Dependency
+declarations are parsed and validated inside the manager, next to the planner
+that uses them.
 
 The registry client is npm access only. It returns the raw plugin config and
 does not read or validate plugin dependencies. Proxy configs are resolved by
-the management layer, read once per request, and only apply when a package ships
-no config of its own. The registry cache therefore cannot go stale when
+`lib/plugins.js`, read once per request, and only apply when a package ships no
+config of its own. The planner uses them for the target and for its
+dependencies, so a package such as `jquery` can be planned without an npm
+archive. The registry cache therefore cannot go stale when
 `app/plugin-proxy.json` changes.
 
 ## What each one does
@@ -86,26 +86,30 @@ that the policies diverge.
 ```
 manage-prototype/routes/plugins.js
         ↓
-lib/plugin-management.js ────────→ lib/plugin-registry.js
+lib/plugin-manager.js ──→ lib/npm-registry.js
+        │              └─→ lib/plugins.js
         ↓
-lib/plugin-plan.js (async, injected) ← lib/plugin-proxy.js
-        ↓
-lib/dev-server.js → lib/plugin-npm.js
+lib/dev-server.js
 ```
 
 Request flow:
 
-1. `GET /plugins` reads project state (`readPlugins`), adds registry update
-   information (`addUpdateState`) and renders the list.
-2. `GET /plugins/confirm` runs `buildActionPlan` and renders the exact plan.
-3. `POST /plugins/confirm` re-reads state, re-plans, compares an
-   `expectedChanges` fingerprint, then calls `devServer.updatePlugins()`.
+1. `GET /plugins` runs `listPlugins()`, which reads project state from disk,
+   fetches registry versions in parallel and computes the actions each entry
+   allows.
+2. `GET /plugins/confirm` runs `planPluginAction()` and renders the exact plan.
+3. `POST /plugins/confirm` re-runs `planPluginAction()` and blocks if the plan
+   has problems, then calls `devServer.updatePlugins(plan)`, which runs
+   `runPluginAction(plan)`.
 
-The planner receives registry `getConfig` and `getMetadata` functions and
-returns a finished `{ operation, requested, ok, noop, changes, problems }`
-object. Registry failures reject and become a 503. An unreadable installed
-plugin config is treated as having no dependencies and is reported on the
-plugin, rather than blocking every plan.
+The plan is one `{ action, packageName, pluginName, publisher, version, ok,
+noop, changes, problems }` object used by both the confirm view and the runner.
+Registry failures become a 503, policy refusals become a 400, and a plan with
+blocking problems becomes a 409. An unreadable installed plugin config is
+treated as having no dependencies and is reported on the plugin, rather than
+blocking every plan. The POST re-plans, so it does not fingerprint the plan the
+user saw; a registry change between the two requests can still produce a
+different, valid plan.
 
 Dependency planning covers the cases the real plugin data uses: a missing
 dependency, a dependency below `minVersion` or above `maxVersion`, conflicts
@@ -147,22 +151,25 @@ page, which shows the manual command to run in a terminal.
 
 ## Where Protato is better
 
-- **Single-purpose modules with honest names.** `plugin-plan`, `plugin-registry`
-  and `plugin-npm` each have one job and a small public surface.
-- **The planner is a strong boundary.** Constraint and cycle handling can be
-  tested without network, filesystem or npm.
-- **No shell strings.** `buildNpmPlan` returns data; `plugin-npm` builds argv
-  with package-name validation, protected-package checks and exact versions.
+- **One module per use case.** `lib/plugins.js` reads configs for the runtime,
+  `lib/npm-registry.js` only talks to npm, and `lib/plugin-manager.js` handles
+  listing, planning and execution for the management page.
+- **The planner is testable.** Constraint and cycle handling runs against a
+  temporary project of real files and a stubbed registry module, without
+  network or npm.
+- **No shell strings.** `runPluginAction` builds argv with package-name
+  validation, protected-package checks and exact versions.
 - **No module-level reads of project state.** The kit's `packages.js` reads the
   project package once at load time, so its view of installed versions is stale
   until the process restarts. Protato re-reads the project on every request.
 - **Diagnostics over exceptions.** A corrupt config becomes a visible message on
   the page instead of a failed request.
 - **Eligibility is computed once per entry.** `buildPluginEntry` decides
-  `protectedPackage` and `readOnly`, and both the list and the action planner
-  read those fields, so they cannot disagree.
+  `protectedPackage` and `readOnly`, `getActions` turns those into the buttons
+  and the action planner reads the same fields, so they cannot disagree.
 - **Proxy configs reuse the runtime loader.** The management page and the
-  runtime load plugin configs through the same reader.
+  runtime share `readInstalledPackage`, so their view of plugin configs cannot
+  drift.
 
 ## Where the kit is easier
 

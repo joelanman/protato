@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { CONFIG_FILE } from '../../lib/utils/plugin-config.js'
+import { CONFIG_FILE } from '../../lib/plugins.js'
 
 function writeFile(dir, filePath, contents) {
 	const fullPath = path.join(dir, filePath)

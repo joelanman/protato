@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto'
 import express from 'express'
 
 import devServer from '../../lib/dev-server.js'
-import { addUpdateState, buildActionPlan, buildNpmPlan, readPlugins } from '../../lib/plugin-management.js'
+import { listPlugins, planPluginAction } from '../../lib/plugin-manager.js'
 
 const router = express.Router()
 const formToken = randomBytes(16).toString('hex')
@@ -30,13 +30,11 @@ function renderConfirmError(response, status, heading, error, extra = {}) {
 
 router.get('/', async (request, response, next) => {
 	try {
-		const { pagePlugins, diagnostics } = readPlugins()
-
-		await addUpdateState(pagePlugins)
+		const { plugins, diagnostics } = await listPlugins()
 
 		response.render('plugins', {
 			pageName: 'Plugins',
-			plugins: pagePlugins,
+			plugins,
 			diagnostics,
 			updated: request.query.updated === '1'
 		})
@@ -46,34 +44,25 @@ router.get('/', async (request, response, next) => {
 })
 
 router.get('/confirm', async (request, response) => {
-	const state = readPlugins()
 	const { action, packageName } = request.query
-	const result = await buildActionPlan(action, packageName, state)
+	const plan = await planPluginAction(action, packageName)
 
-	if (result.error) {
-		renderConfirmError(response, result.status, 'Plugin changes could not be started', result.error)
+	if (plan.error) {
+		renderConfirmError(response, plan.status, 'Plugin changes could not be started', plan.error)
 		return
 	}
 
 	response.render('plugin-confirm', {
 		pageName: 'Confirm plugin changes',
-		action,
-		packageName,
-		pluginName: result.plugin.name,
-		publisher: result.plugin.publisher,
-		version: result.version,
-		noop: result.plan.noop,
-		changes: result.changes,
-		problems: result.problems,
-		token: formToken,
-		expectedChanges: result.expectedChanges
+		...plan,
+		token: formToken
 	})
 })
 
 router.post('/confirm', async (request, response) => {
-	const body = request.body ?? {}
+	const { token, action, packageName } = request.body ?? {}
 
-	if (body.token !== formToken) {
+	if (token !== formToken) {
 		renderConfirmError(
 			response,
 			403,
@@ -83,39 +72,27 @@ router.post('/confirm', async (request, response) => {
 		return
 	}
 
-	const state = readPlugins()
-	const { action, packageName, expectedChanges } = body
-	const result = await buildActionPlan(action, packageName, state)
+	const plan = await planPluginAction(action, packageName)
 
-	if (result.error) {
-		renderConfirmError(response, result.status, 'Plugin changes could not be made', result.error)
+	if (plan.error) {
+		renderConfirmError(response, plan.status, 'Plugin changes could not be made', plan.error)
 		return
 	}
 
-	if (!result.plan.ok) {
+	if (!plan.ok) {
 		renderConfirmError(response, 409, 'The plugin changes could not be made', 'The plan has blocking problems.', {
-			problems: result.problems
+			problems: plan.problems
 		})
 		return
 	}
 
-	if (result.plan.noop) {
+	if (plan.noop) {
 		response.redirect(303, '/manage-prototype/plugins')
 		return
 	}
 
-	if (expectedChanges !== result.expectedChanges) {
-		renderConfirmError(
-			response,
-			409,
-			'The plugin list changed',
-			'Review the latest plugin plan and confirm the changes again.'
-		)
-		return
-	}
-
 	try {
-		const npmResult = await devServer.updatePlugins(buildNpmPlan(result.plan))
+		const npmResult = await devServer.updatePlugins(plan)
 
 		if (!npmResult?.ok) {
 			renderConfirmError(
