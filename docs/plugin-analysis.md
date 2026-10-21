@@ -61,7 +61,7 @@ no config of its own. The registry cache therefore cannot go stale when
 
 | Capability | Protato | Kit |
 | --- | --- | --- |
-| Known allowlist | Yes, enforced in the management policy and npm runner | Yes in the list/search UI, **not on POST** |
+| Known list | Suggestions only: listed packages are shown uninstalled, plus any installed plugin | Suggestions only in the list/search UI |
 | Search and available vs installed | One list, no search | Separate "Find plugins" and "Installed plugins" pages, search box |
 | Install / update / uninstall | Yes | Yes |
 | `pluginDependencies` | `minVersion`/`maxVersion` checking, missing dependencies, conflicts, cycles, dependency downgrades, recursive uninstall of dependents | Direct missing deps only; installed deps are not checked against constraints; dependents only one level deep |
@@ -73,12 +73,11 @@ no config of its own. The registry cache therefore cannot go stale when
 | Request protection | Form token | `csrf-csrf` double-submit |
 | Version policy | Registry `latest` stable, pinned exactly; no prereleases, no version picker, no downgrade action | Latest, optional prereleases; local, GitHub and proxy plugin configs |
 | Metadata shown | Installed/latest versions, protected/read-only diagnostics | Description, scope, help link, update count |
-| Unknown/local plugins | Shown read-only with diagnostics | Shown if installed or available |
+| Unknown/local plugins | Shown with diagnostics | Shown if installed or available |
 | Templates integration | No | Templates page links into plugin install/update |
 
-Both list only known plugins and protect the kit itself from uninstall. Beyond
-that the policies diverge, most importantly because the kit does not re-check
-the allowlist on POST.
+Both list suggested plugins and protect the kit itself from uninstall. Beyond
+that the policies diverge.
 
 ## Architecture
 
@@ -153,14 +152,15 @@ page, which shows the manual command to run in a terminal.
 - **The planner is a strong boundary.** Constraint and cycle handling can be
   tested without network, filesystem or npm.
 - **No shell strings.** `buildNpmPlan` returns data; `plugin-npm` builds argv
-  with an allowlist, protected-package checks and exact versions.
+  with package-name validation, protected-package checks and exact versions.
 - **No module-level reads of project state.** The kit's `packages.js` reads the
   project package once at load time, so its view of installed versions is stale
   until the process restarts. Protato re-reads the project on every request.
 - **Diagnostics over exceptions.** A corrupt config becomes a visible message on
   the page instead of a failed request.
-- **Explicit policy in one place.** `getPluginEligibility` decides known,
-  protected and read-only, so the list and the action planner cannot disagree.
+- **Eligibility is computed once per entry.** `buildPluginEntry` decides
+  `protectedPackage` and `readOnly`, and both the list and the action planner
+  read those fields, so they cannot disagree.
 - **Proxy configs reuse the runtime loader.** The management page and the
   runtime load plugin configs through the same reader.
 

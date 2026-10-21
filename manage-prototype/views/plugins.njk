@@ -60,15 +60,9 @@
                 {% endif %}
 
                 {% if plugin.readOnly %}
-                  {% if not plugin.known %}
-                    <p class="govuk-body">
-                      This plugin is not in Protato's known list, so it is read-only.
-                    </p>
-                  {% else %}
-                    <p class="govuk-body">
-                      This plugin was installed from outside the npm registry, so it is read-only.
-                    </p>
-                  {% endif %}
+                  <p class="govuk-body">
+                    This plugin was installed from outside the npm registry, so it is read-only.
+                  </p>
                 {% endif %}
               {% endif %}
 

@@ -155,7 +155,6 @@ describe('plugins management route', () => {
 			// protected and read-only are independent explanations
 			expect(html).toContain('This plugin is protected, so it cannot be uninstalled.')
 			expect(html).toContain('This plugin was installed from outside the npm registry, so it is read-only.')
-			expect(html).toContain("This plugin is not in Protato's known list, so it is read-only.")
 
 			expect(html).toContain('&lt;script&gt;')
 			expect(html).not.toContain('<script>alert(1)')
@@ -251,9 +250,20 @@ describe('plugins management route', () => {
 
 			const invalidAction = await getConfirmation({ action: 'remove', packageName: 'hmrc-frontend' })
 			expect(invalidAction.response.status).toBe(400)
+		})
 
-			const unknown = await getConfirmation({ action: 'install', packageName: 'unknown-plugin' })
-			expect(unknown.response.status).toBe(400)
+		it('confirms an install for a package outside the known list', async () => {
+			setupProject({})
+
+			const { renders, response } = await getConfirmation({
+				action: 'install',
+				packageName: 'unknown-plugin',
+				registry: { latest: { 'unknown-plugin': '1.0.0' } }
+			})
+
+			expect(response.status).toBe(200)
+			expect(renders[0].model.pluginName).toBe('Unknown Plugin')
+			expect(renders[0].model.expectedChanges).toBe('install:unknown-plugin::1.0.0')
 		})
 
 		it('executes the confirmed plan and redirects to the refreshed list', async () => {

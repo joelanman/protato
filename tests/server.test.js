@@ -470,7 +470,7 @@ describe('Server (plugin refresh from command line)', () => {
 		const pluginListHtml = await pluginListResponse.text()
 		expect(pluginListHtml).toContain(`data-plugin-package-name="${pluginName}"`)
 		expect(pluginListHtml).toContain('Installed version 1.0.0')
-		expect(pluginListHtml).toContain("This plugin is not in Protato's known list, so it is read-only.")
+		expect(pluginListHtml).toContain('data-plugin-action="uninstall"')
 	}, 20000)
 })
 

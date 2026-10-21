@@ -20,8 +20,9 @@ Run `npm run dev`.
 ## Plugins
 
 In development, plugins can be installed, updated and uninstalled from
-`/manage-prototype/plugins`. Only packages listed in `known-plugins.json` can
-be managed.
+`/manage-prototype/plugins`. `known-plugins.json` lists the packages Protato
+suggests and shows even when they are not installed; any installed package with
+a `govuk-prototype-kit.config.json` can also be updated or uninstalled.
 
 ### Proxy plugin configs
 
