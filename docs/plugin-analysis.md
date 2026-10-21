@@ -18,29 +18,30 @@ local development-only management UI. They do not have the same scope.
   an `exec()` call and a browser polling loop that infers completion after the
   kit restarts.
 
-Protato is the more trustworthy and more testable design. The kit is easier to
-read end to end.
+Protato is the more trustworthy and more testable design. The kit's happy path
+is shorter, but its implementation is harder to trace.
 
 ## Plugin management line counts
 
 | Area | Protato | Kit |
 | --- | ---: | ---: |
-| Listing (`lib/manage-plugins/list.js`) | 151 | handler, 344 |
-| Planning (`lib/manage-plugins/make-plan.js`) | 513 | planner, 278 |
-| npm execution (`lib/manage-plugins/run-plan.js`) | 109 | inside the handler, via `exec` |
+| Listing (`lib/manage-plugins/list.js`) | 114 | handler, 344 |
+| Planning (`lib/manage-plugins/make-plan.js`) | 527 | planner, 278 |
+| npm execution (`lib/manage-plugins/run-plan.js`) | 79 | inside the handler, via `exec` |
 | npm registry client (`lib/npm-registry.js`) | 229 | inside `packages.js` and `lib/utils/requestHttps.js` |
-| HTTP route (`manage-prototype/routes/plugins.js`) | 116 | inside the handler |
-| Views | 235 | 282 |
+| HTTP route (`manage-prototype/routes/plugins.js`) | 118 | inside the handler |
+| Views | 258 | 282 |
 | Browser script | 0 | `manage-plugins.js` 172 |
-| **Production total** | **1,353** | **1,076** |
-| Unit and integration tests | 2,019 | 583 |
+| **Production total** | **1,325** | **1,076** |
+| Unit and integration tests | 1,896 | 583 |
 | Cypress e2e and fixtures | 0 | 1,468 |
-| **Test total** | **2,019** | **2,051** |
-| Test lines per production line | 1.49 | 1.91 |
+| **Test total** | **1,896** | **2,051** |
+| Test lines per production line | 1.43 | 1.91 |
 
 Both figures exclude the runtime plugin loader and validator, which sit next to
 but outside the management path. Protato's shared runtime loader is
-`lib/plugins.js`; it also reads proxy configs for the management page.
+`lib/plugins.js`; the management pages read the project's plugins through the
+same `readProjectPlugins` the runtime uses, so their view cannot drift.
 
 The largest remaining Protato module is the planner. It is larger than the
 kit's planner because it does work the kit does not: constraint-based dependency
@@ -53,18 +54,18 @@ and in-memory archive config extraction.
 
 The registry client is npm access only. It returns the raw plugin config and
 does not read or validate plugin dependencies. Proxy configs are resolved by
-`lib/plugins.js`, read once per request, and only apply when a package ships no
-config of its own. The planner uses them for the target and for its
-dependencies, so a package such as `jquery` can be planned without an npm
-archive. The registry cache therefore cannot go stale when
-`app/plugin-proxy.json` changes.
+`lib/plugins.js`, read once per request, and only apply once the package is on
+disk and ships no config of its own. The planner is given the same proxy configs
+and uses them for the target and its dependencies, so a package such as `jquery`
+can be planned before it is installed, without an npm archive. The registry
+cache therefore cannot go stale when `app/plugin-proxy.json` changes.
 
 ## What each one does
 
 | Capability | Protato | Kit |
 | --- | --- | --- |
 | Known list | Suggestions only: listed packages are shown uninstalled, plus any installed plugin | Suggestions only in the list/search UI |
-| Search and available vs installed | One list, no search | Separate "Find plugins" and "Installed plugins" pages, search box |
+| Search and available vs installed | Separate installed and available sections, no search | Separate "Find plugins" and "Installed plugins" pages, search box |
 | Install / update / uninstall | Yes | Yes |
 | `pluginDependencies` | `minVersion`/`maxVersion` checking, missing dependencies, conflicts, cycles, dependency downgrades, recursive uninstall of dependents | Direct missing deps only; installed deps are not checked against constraints; dependents only one level deep |
 | Proxy plugin configs | `jquery` and `notifications-node-client` built in, plus `app/plugin-proxy.json` | Built in, plus `app/plugin-proxy.json` |
@@ -97,9 +98,10 @@ lib/dev-server.js
 
 Request flow:
 
-1. `GET /plugins` runs `listPlugins()` in `list.js`, which reads project state
-   from disk, fetches registry versions in parallel and computes the actions
-   each entry allows.
+1. `GET /plugins` runs `listPlugins()` in `list.js`, which reads the project's
+   installed plugins from disk, offers the plugins from `known-plugins.json`
+   that are not installed yet, fetches registry versions in parallel and
+   computes the actions each list allows.
 2. `GET /plugins/confirm` runs `makePluginPlan()` in `make-plan.js` and
    renders the exact plan. The planner reads plugin entries from `list.js`.
 3. `POST /plugins/confirm` re-runs `makePluginPlan()` and blocks if the plan
@@ -161,8 +163,11 @@ page, which shows the manual command to run in a terminal.
 - **The planner is testable.** Constraint and cycle handling runs against a
   temporary project of real files and a stubbed registry module, without
   network or npm.
-- **No shell strings.** `runPluginPlan` builds argv with package-name
-  validation, protected-package checks and exact versions.
+- **No shell strings, and the runner trusts the planner.** `makePluginPlan`
+  validates the requested target and third-party dependency declarations;
+  `runPluginPlan` builds argv from that plan without duplicating the checks.
+  Installed names read from the project's `package.json` are treated as trusted
+  local config.
 - **No module-level reads of project state.** The kit's `packages.js` reads the
   project package once at load time, so its view of installed versions is stale
   until the process restarts. Protato re-reads the project on every request.
@@ -174,13 +179,37 @@ page, which shows the manual command to run in a terminal.
 - **Proxy configs reuse the runtime loader.** The management page and the
   runtime share `readInstalledPackage`, so their view of plugin configs cannot
   drift.
+- **One request, one trace.** `GET /plugins` is route → `list.js`; `GET
+  /plugins/confirm` is route → `make-plan.js`; `POST /plugins/confirm` re-plans
+  and calls `run-plan.js`. The runtime loader is only reached through
+  `readInstalledPackage`.
 
-## Where the kit is easier
+## Where the kit's happy path is shorter, but its code is not
 
-- **The whole flow is legible in one sitting.** List → confirm → poll is easy to
-  hold in your head.
-- **Smaller functions and modules.** The kit's package lookup is spread across a
-  few short functions, while Protato has a larger planner and registry client.
+- **The happy path has fewer user decisions.** The list button opens a combined
+  confirm/progress page. When the request is same-origin and there are no
+  dependencies, that page starts the action automatically, so the common case
+  is one click rather than Protato's list → plan → confirm. Progress,
+  completion and failure are panels on the same page. This is a shorter happy
+  path, not a smaller state machine: the kit also branches on same-origin,
+  dependency presence, JavaScript availability, restart and polling.
+- **The implementation does not fit in one sitting.** One `GET /plugins`
+  goes through the router, `getPluginsHandler`, `prepareForPluginPage`,
+  `getAllPackages`, `getOrFetchPackagesCache`, `updatePackagesInfo`,
+  `refreshPackageInfo`, the registry, `getConfigForPackage`, proxy config and
+  `known-plugins.json`, then back through `buildPluginData` and
+  `preparePackageNameForDisplay`.
+- **A plugin action is split across five modules.** `GET /plugins/:mode`
+  re-enters the handler and `packages.js` (`getDependentPackages`,
+  `getDependencyPackages`, `getConfigForPackage`) and `plugins.js`. `POST
+  /plugins/:mode` runs a shell command through `exec()` and forces
+  `process.exit(1)`. Completion is then inferred by a 172-line browser script
+  polling `postPluginsStatusHandler`, the `kitRestarted` module flag and a
+  package cache that may be stale.
+- **Smaller functions, not a smaller trace.** `refreshPackageInfo` is a ~90-line
+  function mixing disk reads, registry responses, prereleases, local/Git
+  detection, proxy fallback and dependency normalisation, while the plugin
+  section of the 779-line `manage-prototype-handlers.js` is ~370 lines.
 - **Template macros.** The kit reuses `govukButton`; Protato hand-writes three
   near-identical `<form>` blocks in `plugins.njk`.
 - **A real no-JS story.** The kit degrades to manual instructions. Protato is

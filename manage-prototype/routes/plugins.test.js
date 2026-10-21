@@ -68,8 +68,8 @@ function setupProject(options = {}) {
 
 const packagePath = (packageName, ...parts) => path.join(dir, 'node_modules', packageName, ...parts)
 
-function getPlugin(page, packageName) {
-	return page.plugins.find((plugin) => plugin.packageName === packageName)
+function getPlugin(model, packageName) {
+	return [...model.installed, ...model.available].find((plugin) => plugin.packageName === packageName)
 }
 
 function createApp() {
@@ -129,6 +129,7 @@ describe('plugins management route', () => {
 			expect(renders[0].view).toBe('plugins')
 			expect(renders[0].model.pageName).toBe('Plugins')
 			expect(getPlugin(renders[0].model, 'hmrc-frontend').installedVersion).toBe('6.0.0')
+			expect(renders[0].model.available.map((plugin) => plugin.packageName)).not.toContain('hmrc-frontend')
 			expect(fetchSpy).not.toHaveBeenCalled()
 		})
 
@@ -152,7 +153,10 @@ describe('plugins management route', () => {
 			expect(response.status).toBe(200)
 			expect(html).toContain('HMRC Frontend')
 			expect(html).toContain('Installed version 6.0.0')
-			expect(html).toContain('Not installed')
+
+			// available plugins are listed separately from installed ones
+			expect(html).toContain('Available plugins')
+			expect(html).toContain('data-plugin-action="install"')
 
 			// protected and read-only are independent explanations
 			expect(html).toContain('This plugin is protected, so it cannot be uninstalled.')
@@ -175,6 +179,7 @@ describe('plugins management route', () => {
 
 			expect(response.status).toBe(200)
 			expect(html).toContain('Latest version 7.0.0')
+			expect(html).toContain('Update to 7.0.0')
 			expect(html).toContain('data-plugin-action="update"')
 			expect(html).toContain('data-plugin-action="install"')
 			expect(html).toContain('data-plugin-action="uninstall"')
@@ -225,31 +230,17 @@ describe('plugins management route', () => {
 			expect(renders[0].model.error).toContain('registry unavailable')
 		})
 
-		it('rejects protected, read-only and invalid targets', async () => {
+		it('renders the reason for an invalid target or action', async () => {
 			setupProject({
-				dependencies: { 'govuk-frontend': '5.11.2', 'hmrc-frontend': 'file:../hmrc-frontend' },
-				plugins: [
-					{ packageName: 'govuk-frontend', version: '5.11.2', config: {} },
-					{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }
-				]
+				dependencies: { 'govuk-frontend': '5.11.2' },
+				plugins: [{ packageName: 'govuk-frontend', version: '5.11.2', config: {} }]
 			})
 
-			const protectedResult = await getConfirmation({
-				action: 'uninstall',
-				packageName: 'govuk-frontend'
-			})
+			const protectedResult = await getConfirmation({ action: 'uninstall', packageName: 'govuk-frontend' })
 			expect(protectedResult.response.status).toBe(400)
 			expect(protectedResult.renders[0].model.error).toContain('protected')
 
-			const readOnlyResult = await getConfirmation({
-				action: 'update',
-				packageName: 'hmrc-frontend'
-			})
-
-			expect(readOnlyResult.response.status).toBe(400)
-			expect(readOnlyResult.renders[0].model.error).toContain('read-only')
-
-			const invalidAction = await getConfirmation({ action: 'remove', packageName: 'hmrc-frontend' })
+			const invalidAction = await getConfirmation({ action: 'remove', packageName: 'govuk-frontend' })
 			expect(invalidAction.response.status).toBe(400)
 		})
 

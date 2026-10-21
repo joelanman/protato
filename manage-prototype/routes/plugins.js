@@ -31,11 +31,12 @@ function renderConfirmError(response, status, heading, error, extra = {}) {
 
 router.get('/', async (request, response, next) => {
 	try {
-		const { plugins, diagnostics } = await listPlugins()
+		const { installed, available, diagnostics } = await listPlugins()
 
 		response.render('plugins', {
 			pageName: 'Plugins',
-			plugins,
+			installed,
+			available,
 			diagnostics,
 			updated: request.query.updated === '1'
 		})

@@ -296,7 +296,8 @@ describe('manage prototype dev app', () => {
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugins')
 			expect(model.pageName).toBe('Plugins')
-			expect(Array.isArray(model.plugins)).toBe(true)
+			expect(Array.isArray(model.installed)).toBe(true)
+			expect(Array.isArray(model.available)).toBe(true)
 		})
 	})
 
