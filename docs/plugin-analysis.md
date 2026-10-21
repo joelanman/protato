@@ -25,29 +25,31 @@ read end to end.
 
 | Area | Protato | Kit |
 | --- | ---: | ---: |
-| Listing, planning and npm execution (`lib/plugin-manager.js`) | 806 | handler and planner, 622 |
+| Listing (`lib/manage-plugins/list.js`) | 151 | handler, 344 |
+| Planning (`lib/manage-plugins/make-plan.js`) | 513 | planner, 278 |
+| npm execution (`lib/manage-plugins/run-plan.js`) | 109 | inside the handler, via `exec` |
 | npm registry client (`lib/npm-registry.js`) | 229 | inside `packages.js` and `lib/utils/requestHttps.js` |
 | HTTP route (`manage-prototype/routes/plugins.js`) | 116 | inside the handler |
 | Views | 235 | 282 |
 | Browser script | 0 | `manage-plugins.js` 172 |
-| **Production total** | **1,386** | **1,076** |
-| Unit and integration tests | 1,959 | 583 |
+| **Production total** | **1,353** | **1,076** |
+| Unit and integration tests | 2,019 | 583 |
 | Cypress e2e and fixtures | 0 | 1,468 |
-| **Test total** | **1,959** | **2,051** |
-| Test lines per production line | 1.41 | 1.91 |
+| **Test total** | **2,019** | **2,051** |
+| Test lines per production line | 1.49 | 1.91 |
 
 Both figures exclude the runtime plugin loader and validator, which sit next to
 but outside the management path. Protato's shared runtime loader is
 `lib/plugins.js`; it also reads proxy configs for the management page.
 
-The largest remaining Protato module is the plugin manager, which holds
-listing, planning and npm execution. It is larger than the kit's equivalents
-because it does work the kit does not: bounded HTTPS downloads, in-memory
-archive config extraction and constraint-based dependency planning. The planner
+The largest remaining Protato module is the planner. It is larger than the
+kit's planner because it does work the kit does not: constraint-based dependency
+planning, transitive dependent removal and dependency downgrades. The planner
 keeps its install state in one place, resolves dependencies in one pass and
 reports a late conflict rather than re-planning to a fixed point. Dependency
-declarations are parsed and validated inside the manager, next to the planner
-that uses them.
+declarations are parsed and validated inside the planner, next to the code that
+uses them. The registry client is separate and handles bounded HTTPS downloads
+and in-memory archive config extraction.
 
 The registry client is npm access only. It returns the raw plugin config and
 does not read or validate plugin dependencies. Proxy configs are resolved by
@@ -85,22 +87,24 @@ that the policies diverge.
 
 ```
 manage-prototype/routes/plugins.js
-        ↓
-lib/plugin-manager.js ──→ lib/npm-registry.js
-        │              └─→ lib/plugins.js
-        ↓
+        ├─→ lib/manage-plugins/list.js ──→ lib/npm-registry.js
+        │                              └─→ lib/plugins.js
+        └─→ lib/manage-plugins/make-plan.js ──→ lib/manage-plugins/list.js
+
 lib/dev-server.js
+        └─→ lib/manage-plugins/run-plan.js ──→ lib/manage-plugins/list.js
 ```
 
 Request flow:
 
-1. `GET /plugins` runs `listPlugins()`, which reads project state from disk,
-   fetches registry versions in parallel and computes the actions each entry
-   allows.
-2. `GET /plugins/confirm` runs `planPluginAction()` and renders the exact plan.
-3. `POST /plugins/confirm` re-runs `planPluginAction()` and blocks if the plan
+1. `GET /plugins` runs `listPlugins()` in `list.js`, which reads project state
+   from disk, fetches registry versions in parallel and computes the actions
+   each entry allows.
+2. `GET /plugins/confirm` runs `makePluginPlan()` in `make-plan.js` and
+   renders the exact plan. The planner reads plugin entries from `list.js`.
+3. `POST /plugins/confirm` re-runs `makePluginPlan()` and blocks if the plan
    has problems, then calls `devServer.updatePlugins(plan)`, which runs
-   `runPluginAction(plan)`.
+   `runPluginPlan(plan)` in `run-plan.js`.
 
 The plan is one `{ action, packageName, pluginName, publisher, version, ok,
 noop, changes, problems }` object used by both the confirm view and the runner.
@@ -152,12 +156,12 @@ page, which shows the manual command to run in a terminal.
 ## Where Protato is better
 
 - **One module per use case.** `lib/plugins.js` reads configs for the runtime,
-  `lib/npm-registry.js` only talks to npm, and `lib/plugin-manager.js` handles
-  listing, planning and execution for the management page.
+  `lib/npm-registry.js` only talks to npm, and `lib/manage-plugins/` splits the
+  management path into `list.js`, `make-plan.js` and `run-plan.js`.
 - **The planner is testable.** Constraint and cycle handling runs against a
   temporary project of real files and a stubbed registry module, without
   network or npm.
-- **No shell strings.** `runPluginAction` builds argv with package-name
+- **No shell strings.** `runPluginPlan` builds argv with package-name
   validation, protected-package checks and exact versions.
 - **No module-level reads of project state.** The kit's `packages.js` reads the
   project package once at load time, so its view of installed versions is stale

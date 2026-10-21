@@ -3,7 +3,8 @@ import { randomBytes } from 'node:crypto'
 import express from 'express'
 
 import devServer from '../../lib/dev-server.js'
-import { listPlugins, planPluginAction } from '../../lib/plugin-manager.js'
+import { listPlugins } from '../../lib/manage-plugins/list.js'
+import { makePluginPlan } from '../../lib/manage-plugins/make-plan.js'
 
 const router = express.Router()
 const formToken = randomBytes(16).toString('hex')
@@ -45,7 +46,7 @@ router.get('/', async (request, response, next) => {
 
 router.get('/confirm', async (request, response) => {
 	const { action, packageName } = request.query
-	const plan = await planPluginAction(action, packageName)
+	const plan = await makePluginPlan(action, packageName)
 
 	if (plan.error) {
 		renderConfirmError(response, plan.status, 'Plugin changes could not be started', plan.error)
@@ -72,7 +73,7 @@ router.post('/confirm', async (request, response) => {
 		return
 	}
 
-	const plan = await planPluginAction(action, packageName)
+	const plan = await makePluginPlan(action, packageName)
 
 	if (plan.error) {
 		renderConfirmError(response, plan.status, 'Plugin changes could not be made', plan.error)
