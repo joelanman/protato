@@ -29,6 +29,21 @@ function renderConfirmError(response, status, heading, error, extra = {}) {
 	})
 }
 
+// Installing one plugin with no dependency changes is the common case, so it
+// does not need a second page. Updates and uninstalls still ask for
+// confirmation because they change or remove something already installed.
+function needsConfirmation(plan) {
+	const onlyRequestedInstall =
+		plan.action === 'install' && plan.changes.length === 1 && plan.changes[0].packageName === plan.plugin.packageName
+
+	return !onlyRequestedInstall
+}
+
+function getConfirmUrl(action, packageName) {
+	const query = new URLSearchParams({ action, packageName })
+	return `/manage-prototype/plugins/confirm?${query}`
+}
+
 router.get('/', async (request, response, next) => {
 	try {
 		const { installed, available, diagnostics } = await listPlugins()
@@ -38,6 +53,7 @@ router.get('/', async (request, response, next) => {
 			installed,
 			available,
 			diagnostics,
+			token: formToken,
 			updated: request.query.updated === '1'
 		})
 	} catch (error) {
@@ -81,15 +97,22 @@ router.post('/confirm', async (request, response) => {
 		return
 	}
 
-	if (!plan.ok) {
+	if (plan.problems.length) {
 		renderConfirmError(response, 409, 'The plugin changes could not be made', 'The plan has blocking problems.', {
 			problems: plan.problems
 		})
 		return
 	}
 
-	if (plan.noop) {
+	if (!plan.changes.length) {
 		response.redirect(303, '/manage-prototype/plugins')
+		return
+	}
+
+	// the list page posts directly. Dependency changes, updates and uninstalls
+	// still need the user to see the plan first.
+	if (request.body?.confirmed !== '1' && needsConfirmation(plan)) {
+		response.redirect(303, getConfirmUrl(plan.action, plan.plugin.packageName))
 		return
 	}
 

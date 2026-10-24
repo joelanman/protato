@@ -8,11 +8,11 @@
         {% if heading %}
           {{ heading }}
         {% elif action == 'install' %}
-          Install {{ pluginName }} {{ version }}
+          Install {{ plugin.name }} {{ version }}
         {% elif action == 'update' %}
-          Update {{ pluginName }} to {{ version }}
+          Update {{ plugin.name }} to {{ version }}
         {% else %}
-          Uninstall {{ pluginName }}
+          Uninstall {{ plugin.name }}
         {% endif %}
       </h1>
 
@@ -46,7 +46,7 @@
         <p class="govuk-body">
           <a class="govuk-link" href="/manage-prototype/plugins">Back to plugins</a>
         </p>
-      {% elif noop %}
+      {% elif not changes.length %}
         <p class="govuk-body">No changes are needed.</p>
 
         <p class="govuk-body">
@@ -75,18 +75,26 @@
               </dt>
               <dd class="govuk-summary-list__value">
                 {% if change.action === 'uninstall' %}
-                  <p class="govuk-body">Removes version {{ change.installedVersion }}</p>
+                  {% if change.installedVersion %}
+                    <p class="govuk-body">Removes version {{ change.installedVersion }}</p>
+                  {% else %}
+                    <p class="govuk-body">Removes the dependency</p>
+                  {% endif %}
                 {% elif change.installedVersion %}
                   <p class="govuk-body">Version {{ change.installedVersion }} to {{ change.version }}</p>
                 {% else %}
                   <p class="govuk-body">Version {{ change.version }}</p>
                 {% endif %}
 
-                {% if change.requiredByNames.length %}
+                {% if change.requiredBy.length %}
                   <p class="govuk-body">
-                    Needed by
-                    {% for requiredBy in change.requiredByNames %}
-                      {{ requiredBy.name }}{% if requiredBy.publisher %} ({{ requiredBy.publisher }}){% endif %}{% if not loop.last %}, {% endif %}
+                    {% if change.action === 'uninstall' %}
+                      Depends on
+                    {% else %}
+                      Needed by
+                    {% endif %}
+                    {% for related in change.requiredBy %}
+                      {{ related.name }}{% if related.publisher %} ({{ related.publisher }}){% endif %}{% if not loop.last %}, {% endif %}
                     {% endfor %}
                   </p>
                 {% endif %}
@@ -97,8 +105,9 @@
 
         <form method="post" action="/manage-prototype/plugins/confirm">
           <input type="hidden" name="token" value="{{ token }}">
+          <input type="hidden" name="confirmed" value="1">
           <input type="hidden" name="action" value="{{ action }}">
-          <input type="hidden" name="packageName" value="{{ packageName }}">
+          <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
 
           <div class="govuk-button-group">
             <button class="govuk-button" data-module="govuk-button" data-plugin-confirm>

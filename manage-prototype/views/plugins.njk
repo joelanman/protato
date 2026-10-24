@@ -17,8 +17,9 @@
     {% endif %}
   {% endmacro %}
 
-  {% macro pluginActionForm(action, plugin, label, modifier = "secondary") %}
-    <form method="get" action="/manage-prototype/plugins/confirm">
+  {% macro pluginActionForm(action, plugin, label, token, modifier = "secondary") %}
+    <form method="post" action="/manage-prototype/plugins/confirm">
+      <input type="hidden" name="token" value="{{ token }}">
       <input type="hidden" name="action" value="{{ action }}">
       <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
       <button class="govuk-button govuk-button--{{ modifier }} govuk-!-margin-bottom-0" data-module="govuk-button" data-plugin-action="{{ action }}">
@@ -98,11 +99,11 @@
                 {% if plugin.actions.update or plugin.actions.uninstall %}
                   <div class="govuk-button-group" data-plugin-actions>
                     {% if plugin.actions.update %}
-                      {{ pluginActionForm('update', plugin, 'Update to ' ~ plugin.latestVersion) }}
+                      {{ pluginActionForm('update', plugin, 'Update to ' ~ plugin.latestVersion, token) }}
                     {% endif %}
 
                     {% if plugin.actions.uninstall %}
-                      {{ pluginActionForm('uninstall', plugin, 'Uninstall', 'warning') }}
+                      {{ pluginActionForm('uninstall', plugin, 'Uninstall', token, 'warning') }}
                     {% endif %}
                   </div>
                 {% endif %}
@@ -129,7 +130,7 @@
                 {{ pluginDiagnostics(plugin) }}
 
                 {% if plugin.actions.install %}
-                  {{ pluginActionForm('install', plugin, 'Install') }}
+                  {{ pluginActionForm('install', plugin, 'Install', token) }}
                 {% endif %}
               </dd>
             </div>

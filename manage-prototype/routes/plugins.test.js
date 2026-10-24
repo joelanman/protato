@@ -183,6 +183,8 @@ describe('plugins management route', () => {
 			expect(html).toContain('data-plugin-action="update"')
 			expect(html).toContain('data-plugin-action="install"')
 			expect(html).toContain('data-plugin-action="uninstall"')
+			expect(html).toMatch(/<form method="post" action="\/manage-prototype\/plugins\/confirm"/)
+			expect(html).toContain('name="token"')
 		})
 	})
 
@@ -213,8 +215,35 @@ describe('plugins management route', () => {
 			expect(response.status).toBe(200)
 			const model = renders[0].model
 			expect(model.action).toBe('install')
-			expect(model.pluginName).toBe('HMRC Frontend')
+			expect(model.plugin.name).toBe('HMRC Frontend')
 			expect(model.token).toMatch(/^[a-f0-9]{32}$/)
+		})
+
+		it('describes uninstall dependents by what they depend on', async () => {
+			setupProject({
+				dependencies: {
+					'@govuk-prototype-kit/common-templates': '1.0.0',
+					'@govuk-prototype-kit/step-by-step': '2.0.0'
+				},
+				plugins: [
+					{ packageName: '@govuk-prototype-kit/common-templates', version: '1.0.0', config: {} },
+					{
+						packageName: '@govuk-prototype-kit/step-by-step',
+						version: '2.0.0',
+						config: { pluginDependencies: ['@govuk-prototype-kit/common-templates'] }
+					}
+				]
+			})
+
+			const packageName = encodeURIComponent('@govuk-prototype-kit/common-templates')
+			const response = await request(createDevApp()).get(
+				`/manage-prototype/plugins/confirm?action=uninstall&packageName=${packageName}`
+			)
+
+			expect(response.status).toBe(200)
+			expect(response.text).toContain('Depends on')
+			expect(response.text).toContain('Common Templates')
+			expect(response.text).not.toContain('Needed by')
 		})
 
 		it('shows an offline message when the registry cannot check an install', async () => {
@@ -254,7 +283,101 @@ describe('plugins management route', () => {
 			})
 
 			expect(response.status).toBe(200)
-			expect(renders[0].model.pluginName).toBe('Unknown Plugin')
+			expect(renders[0].model.plugin.name).toBe('Unknown Plugin')
+		})
+
+		it('applies an install with no other changes without asking for confirmation', async () => {
+			setupProject({})
+			vi.mocked(devServer.updatePlugins).mockResolvedValue({ ok: true, exitCode: 0 })
+			configureRegistry({ latest: { 'hmrc-frontend': '7.41.0' } })
+			const { app, renders } = createApp()
+
+			await request(app).get('/manage-prototype/plugins')
+			const response = await postConfirm(app, {
+				token: renders[0].model.token,
+				action: 'install',
+				packageName: 'hmrc-frontend'
+			})
+
+			expect(response.status).toBe(303)
+			expect(response.headers.location).toBe('/manage-prototype/plugins?updated=1')
+			expect(devServer.updatePlugins).toHaveBeenCalledOnce()
+			expect(renders.filter((render) => render.view === 'plugin-confirm')).toHaveLength(0)
+		})
+
+		it('asks for confirmation when an install also changes other plugins', async () => {
+			setupProject({})
+			configureRegistry({
+				latest: { 'hmrc-frontend': '2.0.0', 'govuk-frontend': '6.0.0' },
+				configs: { 'hmrc-frontend@2.0.0': ['govuk-frontend'] }
+			})
+			const { app, renders } = createApp()
+
+			await request(app).get('/manage-prototype/plugins')
+			const response = await postConfirm(app, {
+				token: renders[0].model.token,
+				action: 'install',
+				packageName: 'hmrc-frontend'
+			})
+
+			expect(response.status).toBe(303)
+			expect(response.headers.location).toBe(
+				'/manage-prototype/plugins/confirm?action=install&packageName=hmrc-frontend'
+			)
+			expect(devServer.updatePlugins).not.toHaveBeenCalled()
+		})
+
+		it('still asks for confirmation before updating or uninstalling', async () => {
+			for (const action of ['update', 'uninstall']) {
+				setupProject({
+					dependencies: { 'hmrc-frontend': '6.0.0' },
+					plugins: [{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} }]
+				})
+				configureRegistry({ latest: { 'hmrc-frontend': '7.0.0' } })
+				const { app, renders } = createApp()
+
+				await request(app).get('/manage-prototype/plugins')
+				const response = await postConfirm(app, {
+					token: renders[0].model.token,
+					action,
+					packageName: 'hmrc-frontend'
+				})
+
+				expect(response.status).toBe(303)
+				expect(response.headers.location).toBe(
+					`/manage-prototype/plugins/confirm?action=${action}&packageName=hmrc-frontend`
+				)
+			}
+
+			expect(devServer.updatePlugins).not.toHaveBeenCalled()
+		})
+
+		it('executes a plan with dependency changes after confirmation', async () => {
+			setupProject({})
+			vi.mocked(devServer.updatePlugins).mockResolvedValue({ ok: true, exitCode: 0 })
+			configureRegistry({
+				latest: { 'hmrc-frontend': '2.0.0', 'govuk-frontend': '6.0.0' },
+				configs: { 'hmrc-frontend@2.0.0': ['govuk-frontend'] }
+			})
+			const { app, renders } = createApp()
+
+			await request(app).get('/manage-prototype/plugins/confirm?action=install&packageName=hmrc-frontend')
+			const response = await postConfirm(app, {
+				token: renders[0].model.token,
+				confirmed: '1',
+				action: 'install',
+				packageName: 'hmrc-frontend'
+			})
+
+			expect(response.status).toBe(303)
+			expect(devServer.updatePlugins).toHaveBeenCalledWith(
+				expect.objectContaining({
+					changes: expect.arrayContaining([
+						expect.objectContaining({ packageName: 'govuk-frontend' }),
+						expect.objectContaining({ packageName: 'hmrc-frontend' })
+					])
+				})
+			)
 		})
 
 		it('executes the confirmed plan and redirects to the refreshed list', async () => {
@@ -280,10 +403,8 @@ describe('plugins management route', () => {
 			expect(devServer.updatePlugins).toHaveBeenCalledWith(
 				expect.objectContaining({
 					action: 'install',
-					packageName: 'hmrc-frontend',
+					plugin: expect.objectContaining({ packageName: 'hmrc-frontend' }),
 					version: '7.41.0',
-					ok: true,
-					noop: false,
 					changes: [expect.objectContaining({ packageName: 'hmrc-frontend', version: '7.41.0' })]
 				})
 			)

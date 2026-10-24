@@ -18,6 +18,7 @@
 		"test": "npm run test:unit && npm run test:end && npm run lint",
 		"test:unit": "npx vitest run --config vitest.unit.config.js",
 		"test:end": "npx vitest run --config vitest.end.config.js",
+		"test:scenarios": "node tests/scenarios/run.js",
 		"test:coverage": "npx vitest run --config vitest.unit.config.js --coverage"
 	},
 	"author": "Joe Lanman",
