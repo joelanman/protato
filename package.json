@@ -23,7 +23,7 @@
 	"author": "Joe Lanman",
 	"license": "ISC",
 	"dependencies": {
-		"body-parser": "2.3.0",
+		"body-parser": "^2.4.0",
 		"chokidar": "4.0.3",
 		"commander": "14.0.0",
 		"express": "5.3.0",
