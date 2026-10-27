@@ -19,16 +19,10 @@ Run `npm run dev`.
 
 ## Plugins
 
-In development, plugins can be installed, updated and uninstalled from
-`/manage-prototype/plugins`. `known-plugins.json` lists the packages Protato
-suggests and shows even when they are not installed; any installed package with
-a `govuk-prototype-kit.config.json` can also be updated or uninstalled.
-
 ### Proxy plugin configs
 
 Some npm packages are used as plugins but do not ship a
-`govuk-prototype-kit.config.json`. Protato supplies configs for `jquery` and
-`notifications-node-client`.
+`govuk-prototype-kit.config.json`. Protato supplies a config for `jquery`.
 
 To add or override a config, create `app/plugin-proxy.json` in the project.
 Each key is a package name and each value is the plugin config to use:

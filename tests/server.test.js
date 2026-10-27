@@ -20,24 +20,6 @@ const copyStarter = (destinationDir) => {
 	fs.symlinkSync(starterNodeModulesDir, path.join(destinationDir, 'node_modules'), 'junction')
 }
 
-// Same as copyStarter, but node_modules is a real directory of links so a test
-// can add a package without writing to the starter's node_modules.
-const copyStarterWithWritableNodeModules = (destinationDir) => {
-	copyStarter(destinationDir)
-
-	const nodeModulesDir = path.join(destinationDir, 'node_modules')
-	fs.rmSync(nodeModulesDir, { force: true })
-	fs.mkdirSync(nodeModulesDir)
-
-	for (const entry of fs.readdirSync(starterNodeModulesDir)) {
-		const source = path.join(starterNodeModulesDir, entry)
-		if (!fs.statSync(source).isDirectory()) {
-			continue
-		}
-		fs.symlinkSync(source, path.join(nodeModulesDir, entry), 'junction')
-	}
-}
-
 const stopProcess = async (proc) => {
 	if (proc?.exitCode === null && proc?.signalCode === null) {
 		proc.kill('SIGTERM')
@@ -400,99 +382,6 @@ describe('Server (error in Sass)', () => {
 		expect(body).toContain('application.scss')
 	})
 })
-
-describe('Server (plugin refresh from command line)', () => {
-	let serverProcess = null
-	let testDir = null
-	const port = 3034
-	const root = 'http://localhost:' + port
-	const pluginName = 'cli-installed-plugin'
-
-	beforeAll(() => {
-		testDir = path.join(__dirname, '../tmp/test-cli-plugin')
-
-		fs.rmSync(testDir, { recursive: true, force: true })
-		copyStarterWithWritableNodeModules(testDir)
-	})
-
-	afterEach(async () => {
-		if (serverProcess) {
-			await stopProcess(serverProcess)
-		}
-	})
-
-	afterAll(() => {
-		fs.rmSync(testDir, { recursive: true, force: true })
-	})
-
-	it('shows a command-line install without restarting the dev server', async () => {
-		serverProcess = spawn('node', [cliFilePath, 'dev'], {
-			cwd: testDir,
-			stdio: 'pipe',
-			env: { ...process.env, PORT: port }
-		})
-
-		serverProcess.stdout.pipe(process.stdout)
-		serverProcess.stderr.pipe(process.stderr)
-
-		await waitForServerReady(serverProcess, 'Running at ' + root)
-		await new Promise((resolve) => setTimeout(resolve, 1000))
-
-		// Add a page before the fake install. It only renders once the plugin's
-		// nunjucks view path has been loaded by a restarted prototype.
-		fs.writeFileSync(path.join(testDir, 'app/views/cli-plugin-page.html'), `{% include "cli-message.njk" %}`)
-
-		const pluginDir = path.join(testDir, 'node_modules', pluginName)
-		fs.mkdirSync(path.join(pluginDir, 'views'), { recursive: true })
-		fs.writeFileSync(
-			path.join(pluginDir, 'package.json'),
-			JSON.stringify({ name: pluginName, version: '1.0.0', type: 'module' })
-		)
-		fs.writeFileSync(
-			path.join(pluginDir, 'govuk-prototype-kit.config.json'),
-			JSON.stringify({ nunjucksPaths: ['/views'] })
-		)
-		fs.writeFileSync(path.join(pluginDir, 'views/cli-message.njk'), 'CLI plugin loaded')
-
-		const projectPackagePath = path.join(testDir, 'package.json')
-		const projectPackage = JSON.parse(fs.readFileSync(projectPackagePath, 'utf8'))
-		projectPackage.dependencies[pluginName] = '1.0.0'
-		fs.writeFileSync(projectPackagePath, JSON.stringify(projectPackage, null, 2))
-
-		const pageResponse = await waitForResponse(root + '/cli-plugin-page', 'CLI plugin loaded')
-		expect(pageResponse.status).toBe(200)
-		expect(await pageResponse.text()).toBe('CLI plugin loaded')
-
-		// The same dev server (and its management UI) is still running.
-		const pluginListResponse = await fetch(root + '/manage-prototype/plugins')
-		expect(pluginListResponse.status).toBe(200)
-
-		const pluginListHtml = await pluginListResponse.text()
-		expect(pluginListHtml).toContain(`data-plugin-package-name="${pluginName}"`)
-		expect(pluginListHtml).toContain('Installed version 1.0.0')
-		expect(pluginListHtml).toContain('data-plugin-action="uninstall"')
-	}, 20000)
-})
-
-async function waitForResponse(url, expectedContent, attempts = 100) {
-	for (let attempt = 0; attempt < attempts; attempt++) {
-		try {
-			const response = await fetch(url)
-			if (response.status === 200) {
-				const body = await response.clone().text()
-				if (body.includes(expectedContent)) {
-					return response
-				}
-			}
-		} catch {
-			// the prototype may be between restarts
-		}
-
-		await new Promise((resolve) => setTimeout(resolve, 100))
-	}
-
-	throw new Error(`Timed out waiting for ${url} to contain ${expectedContent}`)
-}
 
 // helper function to wait for server ready message in stdout
 async function waitForServerReady(process, readyMessage) {

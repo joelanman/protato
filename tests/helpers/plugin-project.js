@@ -75,25 +75,3 @@ export function createPluginProject({ dependencies, plugins = [], files = {} } =
 		cleanup: () => fs.rmSync(dir, { recursive: true, force: true })
 	}
 }
-
-/**
- * A project with one plugin of each kind the plugin management pages care
- * about: protato itself, a protected registry plugin, an editable registry
- * plugin, a plugin installed from a local source, and an unknown plugin.
- */
-export const knownPluginsProject = {
-	dependencies: {
-		protato: '0.1.0',
-		'govuk-frontend': '5.11.2',
-		'hmrc-frontend': '6.0.0',
-		'local-plugin': 'file:../local-plugin',
-		'unknown-plugin': '1.0.0'
-	},
-	plugins: [
-		{ packageName: 'protato', version: '0.1.0', config: {} },
-		{ packageName: 'govuk-frontend', version: '5.11.2', config: {} },
-		{ packageName: 'hmrc-frontend', version: '6.0.0', config: {} },
-		{ packageName: 'local-plugin', version: '1.0.0', config: {} },
-		{ packageName: 'unknown-plugin', version: '1.0.0', config: {} }
-	]
-}

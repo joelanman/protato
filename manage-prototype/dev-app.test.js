@@ -53,7 +53,6 @@ vi.mock('../lib/plugins.js', async (importOriginal) => {
 	const actual = await importOriginal()
 
 	return {
-		...actual,
 		default: {
 			...actual.default,
 			getTemplatesByPlugin: vi.fn(() => templatesByPlugin),
@@ -289,15 +288,13 @@ describe('manage prototype dev app', () => {
 	})
 
 	describe('GET /plugins', () => {
-		it('renders the plugins page', async () => {
+		it('renders the plugins placeholder page', async () => {
 			const response = await request(app).get('/manage-prototype/plugins')
 
 			expect(response.status).toBe(200)
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugins')
-			expect(model.pageName).toBe('Plugins')
-			expect(Array.isArray(model.installed)).toBe(true)
-			expect(Array.isArray(model.available)).toBe(true)
+			expect(model).toEqual({ pageName: 'Plugins' })
 		})
 	})
 

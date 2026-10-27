@@ -2,143 +2,17 @@
 
 {% block content %}
 
-  {% macro pluginTitle(plugin) %}
-    <dt class="govuk-summary-list__key">
-      {{ plugin.name }}
-      {% if plugin.publisher %}<span class="govuk-caption-m">From {{ plugin.publisher }}</span>{% endif %}
-    </dt>
-  {% endmacro %}
-
-  {% macro pluginDiagnostics(plugin) %}
-    {% if plugin.diagnostics.length %}
-      <ul class="govuk-list govuk-list--bullet">
-        {% for diagnostic in plugin.diagnostics %}<li>{{ diagnostic }}</li>{% endfor %}
-      </ul>
-    {% endif %}
-  {% endmacro %}
-
-  {% macro pluginActionForm(action, plugin, label, token, modifier = "secondary") %}
-    <form method="post" action="/manage-prototype/plugins/confirm">
-      <input type="hidden" name="token" value="{{ token }}">
-      <input type="hidden" name="action" value="{{ action }}">
-      <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
-      <button class="govuk-button govuk-button--{{ modifier }} govuk-!-margin-bottom-0" data-module="govuk-button" data-plugin-action="{{ action }}">
-        {{ label }}
-      </button>
-    </form>
-  {% endmacro %}
-
   <div class="govuk-grid-row">
-    <div class="govuk-grid-column-two-thirds-from-desktop">
+    <div class="govuk-grid-column-two-thirds">
       <h1 class="govuk-heading-l">Plugins</h1>
 
       <p class="govuk-body">
-        Plugins provide you with new components, styles and other features.
+        Plugins management is not yet available.
       </p>
 
-      {% if updated %}
-        <div class="govuk-notification-banner govuk-notification-banner--success" role="alert" data-plugin-updated>
-          <div class="govuk-notification-banner__header">
-            <h2 class="govuk-notification-banner__title">Success</h2>
-          </div>
-          <div class="govuk-notification-banner__content">
-            <p class="govuk-notification-banner__heading">The plugin changes were made.</p>
-          </div>
-        </div>
-      {% endif %}
-
-      {% if diagnostics.length %}
-        <div class="govuk-inset-text" data-plugin-diagnostics>
-          <p class="govuk-body">Some plugin information could not be read:</p>
-          <ul class="govuk-list govuk-list--bullet">
-            {% for diagnostic in diagnostics %}
-              <li>{{ diagnostic }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-      {% endif %}
-
-      <h2 class="govuk-heading-m">Installed plugins</h2>
-
-      {% if installed.length %}
-        <dl class="govuk-summary-list">
-          {% for plugin in installed %}
-            <div class="govuk-summary-list__row" data-plugin-package-name="{{ plugin.packageName }}">
-              {{ pluginTitle(plugin) }}
-              <dd class="govuk-summary-list__value">
-                {% if plugin.installedVersion %}
-                  <p class="govuk-body">Installed version {{ plugin.installedVersion }}</p>
-                {% else %}
-                  <p class="govuk-body">Not installed</p>
-                {% endif %}
-
-                {% if plugin.packageName === 'protato' %}
-                  <p class="govuk-body">
-                    Protato is running this project, so it cannot update or uninstall itself.
-                  </p>
-                {% else %}
-                  {% if plugin.protectedPackage %}
-                    <p class="govuk-body">
-                      This plugin is protected, so it cannot be uninstalled.
-                    </p>
-                  {% endif %}
-
-                  {% if plugin.readOnly %}
-                    <p class="govuk-body">
-                      This plugin was installed from outside the npm registry, so it is read-only.
-                    </p>
-                  {% endif %}
-                {% endif %}
-
-                {% if plugin.latestVersion %}
-                  <p class="govuk-body">Latest version {{ plugin.latestVersion }}</p>
-                {% endif %}
-
-                {{ pluginDiagnostics(plugin) }}
-
-                {% if plugin.actions.update or plugin.actions.uninstall %}
-                  <div class="govuk-button-group" data-plugin-actions>
-                    {% if plugin.actions.update %}
-                      {{ pluginActionForm('update', plugin, 'Update to ' ~ plugin.latestVersion, token) }}
-                    {% endif %}
-
-                    {% if plugin.actions.uninstall %}
-                      {{ pluginActionForm('uninstall', plugin, 'Uninstall', token, 'warning') }}
-                    {% endif %}
-                  </div>
-                {% endif %}
-              </dd>
-            </div>
-          {% endfor %}
-        </dl>
-      {% else %}
-        <p class="govuk-body">No plugins are installed.</p>
-      {% endif %}
-
-      <h2 class="govuk-heading-m">Available plugins</h2>
-
-      {% if available.length %}
-        <dl class="govuk-summary-list">
-          {% for plugin in available %}
-            <div class="govuk-summary-list__row" data-plugin-package-name="{{ plugin.packageName }}">
-              {{ pluginTitle(plugin) }}
-              <dd class="govuk-summary-list__value">
-                {% if plugin.latestVersion %}
-                  <p class="govuk-body">Latest version {{ plugin.latestVersion }}</p>
-                {% endif %}
-
-                {{ pluginDiagnostics(plugin) }}
-
-                {% if plugin.actions.install %}
-                  {{ pluginActionForm('install', plugin, 'Install', token) }}
-                {% endif %}
-              </dd>
-            </div>
-          {% endfor %}
-        </dl>
-      {% else %}
-        <p class="govuk-body">There are no other plugins available.</p>
-      {% endif %}
+      <p class="govuk-body">
+        <a href="/manage-prototype">Back to Manage your prototype</a>
+      </p>
     </div>
   </div>
 
