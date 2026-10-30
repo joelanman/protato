@@ -3,7 +3,8 @@ import path from 'node:path'
 import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { installPlugin, uninstallPlugin } from '../lib/manage-plugins/change.js'
+import { installPlugin, uninstallPlugin, updatePlugin } from '../lib/manage-plugins/change.js'
+import { checkForUpdates } from '../lib/manage-plugins/list.js'
 import { getDevApp } from './dev-app.js'
 
 const { packageName, template, templatesByPlugin, templateFilePath } = vi.hoisted(() => {
@@ -69,13 +70,15 @@ vi.mock('../lib/plugins.js', async (importOriginal) => {
 })
 
 vi.mock('../lib/manage-plugins/list.js', () => ({
+	checkForUpdates: vi.fn(async (plugins) => plugins),
 	listInstalledPlugins: vi.fn(() => []),
 	listAvailablePlugins: vi.fn(() => [])
 }))
 
 vi.mock('../lib/manage-plugins/change.js', () => ({
 	installPlugin: vi.fn(),
-	uninstallPlugin: vi.fn()
+	uninstallPlugin: vi.fn(),
+	updatePlugin: vi.fn()
 }))
 
 vi.mock('../lib/dev/livereload.js', () => ({
@@ -359,7 +362,29 @@ describe('manage prototype dev app', () => {
 			expect(response.status).toBe(200)
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugins')
-			expect(model).toEqual({ pageName: 'Plugins', installedPlugins: [], availablePlugins: [] })
+			expect(model).toEqual({
+				pageName: 'Plugins',
+				installedPlugins: [],
+				availablePlugins: [],
+				availableUpdatesCount: 0
+			})
+		})
+
+		it('reports how many plugin updates are available', async () => {
+			vi.mocked(checkForUpdates).mockResolvedValueOnce([
+				{
+					packageName: 'asset-plugin',
+					name: 'Asset Plugin',
+					installed: true,
+					version: '1.0.0',
+					latestVersion: '2.0.0',
+					updateAvailable: true
+				}
+			])
+
+			const response = await request(app).get('/manage-prototype/plugins')
+
+			expect(readRender(response).model).toEqual(expect.objectContaining({ availableUpdatesCount: 1 }))
 		})
 	})
 
@@ -370,6 +395,10 @@ describe('manage prototype dev app', () => {
 		beforeEach(async () => {
 			vi.mocked(installPlugin).mockResolvedValue({ packages: ['new-plugin'] })
 			vi.mocked(uninstallPlugin).mockResolvedValue({ packages: ['asset-plugin'] })
+			vi.mocked(updatePlugin).mockResolvedValue({
+				updatedPackage: 'asset-plugin',
+				installedPackages: ['needed-plugin']
+			})
 
 			const pluginsPage = await request(app).get('/manage-prototype/plugins')
 			cookie = pluginsPage.headers['set-cookie'][0].split(';')[0]
@@ -401,6 +430,19 @@ describe('manage prototype dev app', () => {
 			)
 		})
 
+		it('updates the plugin when the token is valid', async () => {
+			const response = await postPlugin('update', { packageName: 'asset-plugin' })
+
+			expect(updatePlugin).toHaveBeenCalledWith('asset-plugin')
+			expect(readRender(response).model).toEqual(
+				expect.objectContaining({
+					outcome: 'updated',
+					updatedPackage: 'asset-plugin',
+					installedPackages: ['needed-plugin']
+				})
+			)
+		})
+
 		it('rejects a change without a token', async () => {
 			const response = await request(app)
 				.post('/manage-prototype/plugins/install')
@@ -410,6 +452,17 @@ describe('manage prototype dev app', () => {
 
 			expect(response.status).toBe(403)
 			expect(installPlugin).not.toHaveBeenCalled()
+		})
+
+		it('rejects an update without a token', async () => {
+			const response = await request(app)
+				.post('/manage-prototype/plugins/update')
+				.set('Cookie', cookie)
+				.type('form')
+				.send({ packageName: 'asset-plugin' })
+
+			expect(response.status).toBe(403)
+			expect(updatePlugin).not.toHaveBeenCalled()
 		})
 	})
 
