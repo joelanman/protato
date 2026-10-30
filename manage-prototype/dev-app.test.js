@@ -3,7 +3,7 @@ import path from 'node:path'
 import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getManagePrototypeDevApp } from './dev-app.js'
+import { getDevApp } from './dev-app.js'
 
 const { packageName, template, templatesByPlugin, templateFilePath } = vi.hoisted(() => {
 	const packageName = '@govuk-prototype-kit/common-templates'
@@ -53,6 +53,7 @@ vi.mock('../lib/plugins.js', async (importOriginal) => {
 	const actual = await importOriginal()
 
 	return {
+		formatPackageName: actual.formatPackageName,
 		default: {
 			...actual.default,
 			getTemplatesByPlugin: vi.fn(() => templatesByPlugin),
@@ -66,7 +67,12 @@ vi.mock('../lib/plugins.js', async (importOriginal) => {
 	}
 })
 
-vi.mock('../lib/livereload.js', () => ({
+vi.mock('../lib/manage-plugins/list.js', () => ({
+	listInstalledPlugins: vi.fn(() => []),
+	listAvailablePlugins: vi.fn(() => [])
+}))
+
+vi.mock('../lib/dev/livereload.js', () => ({
 	default: {
 		getRoute: vi.fn(() => (req, res) => res.send('livereload'))
 	}
@@ -120,7 +126,7 @@ describe('manage prototype dev app', () => {
 			res.render = (view, model) => res.send(renderToString(view, model))
 			next()
 		})
-		devApp = getManagePrototypeDevApp()
+		devApp = getDevApp()
 		app.use('/manage-prototype', devApp)
 	})
 
@@ -288,13 +294,13 @@ describe('manage prototype dev app', () => {
 	})
 
 	describe('GET /plugins', () => {
-		it('renders the plugins placeholder page', async () => {
+		it('renders the plugins page', async () => {
 			const response = await request(app).get('/manage-prototype/plugins')
 
 			expect(response.status).toBe(200)
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugins')
-			expect(model).toEqual({ pageName: 'Plugins' })
+			expect(model).toEqual({ pageName: 'Plugins', installedPlugins: [], availablePlugins: [] })
 		})
 	})
 

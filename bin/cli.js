@@ -3,6 +3,14 @@
 import { program } from 'commander'
 import { start } from '../lib/start.js'
 
+// startup failures (a broken build, a port in use) should end the process with a
+// message, not an unhandled rejection
+const startAndReport = () =>
+	start().catch((error) => {
+		console.error(error.message)
+		process.exit(1)
+	})
+
 program
 	.command('dev')
 	.description('Start development server')
@@ -10,7 +18,7 @@ program
 		console.log('🥔 Starting protato development server')
 		process.env.NODE_ENV = 'development'
 		console.log()
-		start()
+		await startAndReport()
 	})
 
 program
@@ -20,7 +28,7 @@ program
 		console.log('🥔 Starting protato production server')
 		process.env.NODE_ENV = 'production'
 		console.log()
-		start()
+		await startAndReport()
 	})
 
 program

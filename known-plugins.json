@@ -1,0 +1,15 @@
+{
+	"plugins": {
+		"available": [
+			"@govuk-prototype-kit/common-templates",
+			"@govuk-prototype-kit/step-by-step",
+			"@ministryofjustice/frontend",
+			"accessible-autocomplete",
+			"govuk-frontend",
+			"hmrc-frontend",
+			"jquery",
+			"notifications-node-client"
+		],
+		"required": ["protato", "govuk-frontend"]
+	}
+}
