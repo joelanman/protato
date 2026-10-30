@@ -28,6 +28,8 @@
             Plugin installed
           {% elif outcome == 'uninstalled' %}
             Plugins uninstalled
+          {% elif outcome == 'updated' %}
+            Plugin updated
           {% else %}
             No changes needed
           {% endif %}
@@ -36,10 +38,19 @@
         <p class="govuk-body">
           {% if outcome == 'noChange' %}
             {{ message }}
+          {% elif outcome == 'updated' %}
+            The prototype has restarted with the updated plugin.
           {% else %}
             The prototype has restarted with the new plugins.
           {% endif %}
         </p>
+      {% endif %}
+
+      {% if updatedPackage %}
+        <h2 class="govuk-heading-m">Updated</h2>
+        <ul class="govuk-list govuk-list--bullet">
+          <li>{{ updatedPackage }}</li>
+        </ul>
       {% endif %}
 
       {% if installedPackages.length %}

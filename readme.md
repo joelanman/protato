@@ -19,11 +19,17 @@ Run `npm run dev`.
 
 ## Plugins
 
-In development, plugins can be installed and uninstalled from
+In development, plugins can be installed, updated and uninstalled from
 `/manage-prototype/plugins`. `known-plugins.json` uses the GOV.UK Prototype Kit
 format: `plugins.available` lists the packages Protato suggests, and
-`plugins.required` lists packages that cannot be uninstalled. Installing or
-uninstalling runs npm in the project, then rebuilds and restarts the prototype.
+`plugins.required` lists packages that cannot be uninstalled. Installing,
+updating or uninstalling runs npm in the project, then rebuilds and restarts the
+prototype.
+
+Installed registry plugins are checked against the npm registry for newer
+versions. Updating installs the latest version with npm, installs any new plugin
+dependencies it declares, then rebuilds and restarts the prototype. Protato
+itself cannot be updated from the plugins page.
 
 ### Proxy plugin configs
 

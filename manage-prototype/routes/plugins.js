@@ -1,7 +1,7 @@
 import express from 'express'
 
-import { installPlugin, uninstallPlugin } from '../../lib/manage-plugins/change.js'
-import { listAvailablePlugins, listInstalledPlugins } from '../../lib/manage-plugins/list.js'
+import { installPlugin, uninstallPlugin, updatePlugin } from '../../lib/manage-plugins/change.js'
+import { checkForUpdates, listAvailablePlugins, listInstalledPlugins } from '../../lib/manage-plugins/list.js'
 
 const router = express.Router()
 
@@ -24,18 +24,20 @@ function getOutcome(result, outcome) {
 }
 
 // plugins list
-router.get('/', (request, response) => {
-	const installedPlugins = listInstalledPlugins()
+router.get('/', async (request, response) => {
+	const installedPlugins = await checkForUpdates(listInstalledPlugins())
+	const availableUpdatesCount = installedPlugins.filter((plugin) => plugin.updateAvailable).length
 
 	response.render('plugins', {
 		pageName: 'Plugins',
 		installedPlugins,
-		availablePlugins: listAvailablePlugins(installedPlugins)
+		availablePlugins: listAvailablePlugins(installedPlugins),
+		availableUpdatesCount
 	})
 })
 
-// Install and uninstall run straight from the list. The checks a change has to
-// pass (valid name, protected package, already in the requested state,
+// Install, update and uninstall run straight from the list. The checks a change
+// has to pass (valid name, protected package, already in the requested state,
 // dependents) happen inside the change itself, so posting the form directly
 // cannot bypass them.
 router.post('/install', async (request, response) => {
@@ -57,6 +59,18 @@ router.post('/uninstall', async (request, response) => {
 		outcome: getOutcome(result, 'uninstalled'),
 		message: result.error ?? result.noChange,
 		removedPackages: result.packages
+	})
+})
+
+router.post('/update', async (request, response) => {
+	const result = await updatePlugin(request.body.packageName)
+
+	response.render('plugin-result', {
+		pageName: 'Plugins',
+		outcome: getOutcome(result, 'updated'),
+		message: result.error ?? result.noChange,
+		updatedPackage: result.updatedPackage,
+		installedPackages: result.installedPackages
 	})
 })
 

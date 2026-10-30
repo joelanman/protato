@@ -1,16 +1,18 @@
 import express from 'express'
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { installPlugin, uninstallPlugin } from '../../lib/manage-plugins/change.js'
-import { listAvailablePlugins, listInstalledPlugins } from '../../lib/manage-plugins/list.js'
+import { installPlugin, uninstallPlugin, updatePlugin } from '../../lib/manage-plugins/change.js'
+import { checkForUpdates, listAvailablePlugins, listInstalledPlugins } from '../../lib/manage-plugins/list.js'
 import pluginRoutes from './plugins.js'
 
 vi.mock('../../lib/manage-plugins/change.js', () => ({
 	installPlugin: vi.fn(),
-	uninstallPlugin: vi.fn()
+	uninstallPlugin: vi.fn(),
+	updatePlugin: vi.fn()
 }))
 
 vi.mock('../../lib/manage-plugins/list.js', () => ({
+	checkForUpdates: vi.fn(),
 	listAvailablePlugins: vi.fn(),
 	listInstalledPlugins: vi.fn()
 }))
@@ -54,6 +56,7 @@ describe('plugin routes', () => {
 		vi.clearAllMocks()
 
 		listInstalledPlugins.mockReturnValue(installedPlugins)
+		checkForUpdates.mockImplementation(async (plugins) => plugins)
 		listAvailablePlugins.mockReturnValue(availablePlugins)
 
 		app = express()
@@ -71,11 +74,25 @@ describe('plugin routes', () => {
 
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugins')
+			expect(checkForUpdates).toHaveBeenCalledWith(installedPlugins)
 			expect(model).toEqual({
 				pageName: 'Plugins',
 				installedPlugins,
-				availablePlugins
+				availablePlugins,
+				availableUpdatesCount: 0
 			})
+		})
+
+		it('counts the plugins that have updates available', async () => {
+			checkForUpdates.mockResolvedValue([
+				{ ...installedPlugins[0], updateAvailable: true, latestVersion: '2.0.0' },
+				{ ...installedPlugins[0], packageName: 'other-plugin', updateAvailable: false }
+			])
+
+			const response = await request(app).get('/manage-prototype/plugins')
+
+			const { model } = readRender(response)
+			expect(model).toEqual(expect.objectContaining({ availableUpdatesCount: 1 }))
 		})
 	})
 
@@ -88,6 +105,12 @@ describe('plugin routes', () => {
 
 		it('does not have a confirmation page for uninstall', async () => {
 			const response = await request(app).get('/manage-prototype/plugins/uninstall?packageName=asset-plugin')
+
+			expect(response.status).toBe(404)
+		})
+
+		it('does not have a confirmation page for update', async () => {
+			const response = await request(app).get('/manage-prototype/plugins/update?packageName=asset-plugin')
 
 			expect(response.status).toBe(404)
 		})
@@ -205,6 +228,73 @@ describe('plugin routes', () => {
 
 			const { model } = readRender(response)
 			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'protato cannot be uninstalled.' }))
+		})
+	})
+
+	describe('POST /update', () => {
+		it('updates the plugin and reports success', async () => {
+			updatePlugin.mockResolvedValue({
+				ok: true,
+				updatedPackage: 'asset-plugin',
+				installedPackages: ['needed-plugin']
+			})
+
+			const response = await request(app)
+				.post('/manage-prototype/plugins/update')
+				.type('form')
+				.send({ packageName: 'asset-plugin' })
+
+			expect(updatePlugin).toHaveBeenCalledWith('asset-plugin')
+			const { view, model } = readRender(response)
+			expect(view).toBe('plugin-result')
+			expect(model).toEqual(
+				expect.objectContaining({
+					outcome: 'updated',
+					updatedPackage: 'asset-plugin',
+					installedPackages: ['needed-plugin']
+				})
+			)
+		})
+
+		it('reports that there is nothing to do when already up to date', async () => {
+			updatePlugin.mockResolvedValue({ noChange: 'asset-plugin is already up to date.' })
+
+			const response = await request(app)
+				.post('/manage-prototype/plugins/update')
+				.type('form')
+				.send({ packageName: 'asset-plugin' })
+
+			const { model } = readRender(response)
+			expect(model).toEqual(
+				expect.objectContaining({
+					outcome: 'noChange',
+					message: 'asset-plugin is already up to date.'
+				})
+			)
+		})
+
+		it('refuses a second change while one is running', async () => {
+			updatePlugin.mockResolvedValue({ busy: true })
+
+			const response = await request(app)
+				.post('/manage-prototype/plugins/update')
+				.type('form')
+				.send({ packageName: 'asset-plugin' })
+
+			const { model } = readRender(response)
+			expect(model).toEqual(expect.objectContaining({ outcome: 'busy' }))
+		})
+
+		it('reports a failed update', async () => {
+			updatePlugin.mockResolvedValue({ ok: false, error: 'The plugin could not be updated.' })
+
+			const response = await request(app)
+				.post('/manage-prototype/plugins/update')
+				.type('form')
+				.send({ packageName: 'asset-plugin' })
+
+			const { model } = readRender(response)
+			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'The plugin could not be updated.' }))
 		})
 	})
 })
