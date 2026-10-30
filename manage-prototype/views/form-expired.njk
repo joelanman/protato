@@ -1,0 +1,21 @@
+{% extends "layout.njk" %}
+
+{% set pageName = "Your form has expired" %}
+
+{% block content %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <h1 class="govuk-heading-l">Your form has expired</h1>
+
+      <p class="govuk-body">
+        Nothing has been changed. This can happen if the page was open for a long time, or if it was submitted from another website.
+      </p>
+
+      <p class="govuk-body">
+        <a class="govuk-link" href="/manage-prototype">Go to manage your prototype</a> and try again.
+      </p>
+    </div>
+  </div>
+
+{% endblock %}

@@ -5,6 +5,9 @@
 import { notFound } from '../../lib/middleware/errors.js'
 import plugins from '../../lib/plugins.js'
 
+// The dev server proxies this path to the prototype app
+const templatePreviewPath = '/manage-prototype/templates/view'
+
 function templatePreview(request, response, next) {
 	const { packageName, templatePath } = request.query
 	const filePath = plugins.getTemplateFilePath(packageName, templatePath)
@@ -18,4 +21,5 @@ function templatePreview(request, response, next) {
 	response.render(`${packageName}${templatePath}`)
 }
 
+export { templatePreviewPath }
 export default templatePreview

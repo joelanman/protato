@@ -1,7 +1,7 @@
 import express from 'express'
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getApp } from './app.js'
+import { getApp, pagePaths } from './app.js'
 
 vi.mock('../lib/config.js', () => ({
 	getConfig: vi.fn(() => ({ passwords: ['secret'] }))
@@ -20,6 +20,10 @@ describe('manage prototype app', () => {
 			next()
 		})
 		app.use('/manage-prototype', getApp())
+	})
+
+	it('lists the paths it serves, so the dev server can proxy them', () => {
+		expect(pagePaths).toEqual(['/clear-data', '/password'])
 	})
 
 	it('renders the password page with error and return URL', async () => {

@@ -3,6 +3,7 @@ import path from 'node:path'
 import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { installPlugin, uninstallPlugin } from '../lib/manage-plugins/change.js'
 import { getDevApp } from './dev-app.js'
 
 const { packageName, template, templatesByPlugin, templateFilePath } = vi.hoisted(() => {
@@ -72,6 +73,11 @@ vi.mock('../lib/manage-plugins/list.js', () => ({
 	listAvailablePlugins: vi.fn(() => [])
 }))
 
+vi.mock('../lib/manage-plugins/change.js', () => ({
+	installPlugin: vi.fn(),
+	uninstallPlugin: vi.fn()
+}))
+
 vi.mock('../lib/dev/livereload.js', () => ({
 	default: {
 		getRoute: vi.fn(() => (req, res) => res.send('livereload'))
@@ -121,7 +127,6 @@ describe('manage prototype dev app', () => {
 		vi.clearAllMocks()
 		mockNunjucksEnv.render.mockImplementation(renderToString)
 		app = express()
-		app.use(express.urlencoded({ extended: true }))
 		app.use((req, res, next) => {
 			res.render = (view, model) => res.send(renderToString(view, model))
 			next()
@@ -141,6 +146,43 @@ describe('manage prototype dev app', () => {
 
 			expect(response.status).toBe(200)
 			expect(readRender(response).view).toBe('home')
+		})
+
+		it('sets a CSRF token on pages outside the plugin and template routes', async () => {
+			const response = await request(app).get('/manage-prototype')
+
+			expect(response.headers['set-cookie'][0]).toMatch(/^protato\.csrf=/)
+		})
+	})
+
+	describe('unmatched manage paths', () => {
+		let cookie
+		let token
+
+		beforeEach(async () => {
+			const homePage = await request(app).get('/manage-prototype')
+			cookie = homePage.headers['set-cookie'][0].split(';')[0]
+			token = cookie.split('=')[1]
+		})
+
+		it('renders the not found page rather than falling through', async () => {
+			const response = await request(app).get('/manage-prototype/does-not-exist')
+
+			expect(response.status).toBe(404)
+			expect(readRender(response).view).toBe('page-not-found.njk')
+		})
+
+		it('renders the not found page for a POST instead of proxying it', async () => {
+			// the body has already been parsed, so letting this fall through to
+			// the proxy would hang the prototype server
+			const response = await request(app)
+				.post('/manage-prototype/does-not-exist')
+				.set('Cookie', cookie)
+				.type('form')
+				.send({ _csrf: token })
+
+			expect(response.status).toBe(404)
+			expect(readRender(response).view).toBe('page-not-found.njk')
 		})
 	})
 
@@ -179,19 +221,36 @@ describe('manage prototype dev app', () => {
 
 	describe('POST /templates/create', () => {
 		let existsSync
+		let cookie
+		let token
 
-		const postCreate = (newPagePath) => request(app).post(createUrl).type('form').send({ newPagePath })
+		const postCreate = (newPagePath) =>
+			request(app).post(createUrl).set('Cookie', cookie).type('form').send({ newPagePath, _csrf: token })
 
-		beforeEach(() => {
+		beforeEach(async () => {
 			existsSync = vi.spyOn(fs, 'existsSync').mockReturnValue(false)
 			vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined)
 			vi.spyOn(fs, 'copyFileSync').mockReturnValue(undefined)
+
+			// the token is in the cookie as well as the form, so read it from
+			// the cookie the form page would set
+			const formPage = await request(app).get(createUrl)
+			cookie = formPage.headers['set-cookie'][0].split(';')[0]
+			token = cookie.split('=')[1]
 		})
 
 		afterEach(() => {
 			vi.mocked(fs.existsSync).mockRestore()
 			vi.mocked(fs.mkdirSync).mockRestore()
 			vi.mocked(fs.copyFileSync).mockRestore()
+		})
+
+		it('rejects a POST without a token', async () => {
+			const response = await request(app).post(createUrl).type('form').send({ newPagePath: '/my-page' })
+
+			expect(response.status).toBe(403)
+			expect(readRender(response).view).toBe('form-expired.njk')
+			expect(fs.copyFileSync).not.toHaveBeenCalled()
 		})
 
 		it('copies the template and redirects to the created page', async () => {
@@ -304,12 +363,68 @@ describe('manage prototype dev app', () => {
 		})
 	})
 
+	describe('POST /plugins', () => {
+		let cookie
+		let token
+
+		beforeEach(async () => {
+			vi.mocked(installPlugin).mockResolvedValue({ packages: ['new-plugin'] })
+			vi.mocked(uninstallPlugin).mockResolvedValue({ packages: ['asset-plugin'] })
+
+			const pluginsPage = await request(app).get('/manage-prototype/plugins')
+			cookie = pluginsPage.headers['set-cookie'][0].split(';')[0]
+			token = cookie.split('=')[1]
+		})
+
+		const postPlugin = (action, requestBody) =>
+			request(app)
+				.post(`/manage-prototype/plugins/${action}`)
+				.set('Cookie', cookie)
+				.type('form')
+				.send({ ...requestBody, _csrf: token })
+
+		it('installs the plugin when the token is valid', async () => {
+			const response = await postPlugin('install', { packageName: 'new-plugin' })
+
+			expect(installPlugin).toHaveBeenCalledWith('new-plugin')
+			expect(readRender(response).model).toEqual(
+				expect.objectContaining({ outcome: 'installed', installedPackages: ['new-plugin'] })
+			)
+		})
+
+		it('uninstalls the plugin when the token is valid', async () => {
+			const response = await postPlugin('uninstall', { packageName: 'asset-plugin' })
+
+			expect(uninstallPlugin).toHaveBeenCalledWith('asset-plugin')
+			expect(readRender(response).model).toEqual(
+				expect.objectContaining({ outcome: 'uninstalled', removedPackages: ['asset-plugin'] })
+			)
+		})
+
+		it('rejects a change without a token', async () => {
+			const response = await request(app)
+				.post('/manage-prototype/plugins/install')
+				.set('Cookie', cookie)
+				.type('form')
+				.send({ packageName: 'new-plugin' })
+
+			expect(response.status).toBe(403)
+			expect(installPlugin).not.toHaveBeenCalled()
+		})
+	})
+
 	describe('GET /livereload', () => {
 		it('handles livereload route', async () => {
 			const response = await request(app).get('/manage-prototype/livereload')
 
 			expect(response.status).toBe(200)
 			expect(response.text).toBe('livereload')
+		})
+
+		it('does not generate a CSRF token for the event stream', async () => {
+			const response = await request(app).get('/manage-prototype/livereload')
+
+			expect(response.headers['set-cookie']).toBeUndefined()
 		})
 	})
 })
