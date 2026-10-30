@@ -1,7 +1,7 @@
 import express from 'express'
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getManagePrototypeApp } from './app.js'
+import { getApp } from './app.js'
 
 vi.mock('../lib/config.js', () => ({
 	getConfig: vi.fn(() => ({ passwords: ['secret'] }))
@@ -19,7 +19,7 @@ describe('manage prototype app', () => {
 			req.session = session
 			next()
 		})
-		app.use('/manage-prototype', getManagePrototypeApp())
+		app.use('/manage-prototype', getApp())
 	})
 
 	it('renders the password page with error and return URL', async () => {
@@ -76,6 +76,20 @@ describe('manage prototype app', () => {
 		const response = await request(app).get('/manage-prototype/plugins')
 
 		expect(response.status).toBe(404)
+	})
+
+	it('does not expose the plugin changes in production', async () => {
+		const installResponse = await request(app)
+			.post('/manage-prototype/plugins/install')
+			.type('form')
+			.send({ packageName: 'jquery' })
+		const uninstallResponse = await request(app)
+			.post('/manage-prototype/plugins/uninstall')
+			.type('form')
+			.send({ packageName: 'jquery' })
+
+		expect(installResponse.status).toBe(404)
+		expect(uninstallResponse.status).toBe(404)
 	})
 
 	it('redirects back to the password page when the password is wrong', async () => {

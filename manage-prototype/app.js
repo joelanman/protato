@@ -21,7 +21,7 @@ function getSafeReturnURL(returnURL = '/') {
 	return '/'
 }
 
-const getManagePrototypeApp = () => {
+const getApp = () => {
 	const app = express()
 	const paths = getPaths()
 
@@ -64,4 +64,4 @@ const getManagePrototypeApp = () => {
 	return app
 }
 
-export { getManagePrototypeApp }
+export { getApp }

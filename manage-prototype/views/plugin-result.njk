@@ -1,0 +1,69 @@
+{% extends "layout.njk" %}
+
+{% block content %}
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds-from-desktop">
+
+      {% if outcome == 'busy' or outcome == 'failed' %}
+        <h1 class="govuk-heading-l">The plugin could not be changed</h1>
+
+        <div class="govuk-error-summary" data-module="govuk-error-summary">
+          <div role="alert">
+            <h2 class="govuk-error-summary__title">There is a problem</h2>
+            <div class="govuk-error-summary__body">
+              <p class="govuk-body">
+                {% if outcome == 'busy' %}
+                  Another plugin change is already running. Try again when it has finished.
+                {% else %}
+                  {{ message }}
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <h1 class="govuk-heading-l">
+          {% if outcome == 'installed' %}
+            Plugin installed
+          {% elif outcome == 'uninstalled' %}
+            Plugins uninstalled
+          {% else %}
+            No changes needed
+          {% endif %}
+        </h1>
+
+        <p class="govuk-body">
+          {% if outcome == 'noChange' %}
+            {{ message }}
+          {% else %}
+            The prototype has restarted with the new plugins.
+          {% endif %}
+        </p>
+      {% endif %}
+
+      {% if installedPackages.length %}
+        <h2 class="govuk-heading-m">Installed</h2>
+        <ul class="govuk-list govuk-list--bullet">
+          {% for packageName in installedPackages %}
+            <li>{{ packageName }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      {% if removedPackages.length %}
+        <h2 class="govuk-heading-m">Uninstalled</h2>
+        <ul class="govuk-list govuk-list--bullet">
+          {% for packageName in removedPackages %}
+            <li>{{ packageName }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+
+      <p class="govuk-body">
+        <a class="govuk-link" href="/manage-prototype/plugins">Back to plugins</a>
+      </p>
+    </div>
+  </div>
+
+{% endblock %}
