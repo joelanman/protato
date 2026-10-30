@@ -32,6 +32,16 @@ const stopProcess = async (proc) => {
 	}
 }
 
+// Reads the CSRF token and cookie from a rendered form, the way a browser would
+const getCsrf = async (url) => {
+	const response = await fetch(url)
+	const html = await response.text()
+	const token = /name="_csrf" value="([^"]+)"/.exec(html)?.[1]
+	const cookie = (response.headers.get('set-cookie') ?? '').split(';')[0]
+
+	return { token, cookie }
+}
+
 describe('Server', () => {
 	let serverProcess = null
 	let testDir = null
@@ -193,6 +203,19 @@ describe('Server', () => {
 			expect(previewHtml).toContain('Service name goes here')
 			expect(previewHtml).toContain('href="/manage-prototype"')
 
+			// the preview URL is proxied, so this stands in for any POST under
+			// /manage-prototype that is not a manage route: the dev app must not
+			// consume the body or check a token. A consumed body used to hang
+			// the prototype server, which also broke the password page in dev.
+			const previewPostResponse = await fetch(manageUrl('view'), {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ example: 'value' }),
+				redirect: 'manual'
+			})
+			expect(previewPostResponse.status).toBe(302)
+			expect(new URL(previewPostResponse.headers.get('location'), root).href).toBe(manageUrl('view'))
+
 			const unbrandedQuery = new URLSearchParams({
 				packageName,
 				templatePath: '/templates/blank-unbranded.html'
@@ -206,16 +229,26 @@ describe('Server', () => {
 			expect(unbrandedHtml).not.toContain('govuk-header__')
 
 			const newPagePath = '/created-from-template'
+			const createPage = await getCsrf(manageUrl('create'))
 			const createResponse = await fetch(manageUrl('create'), {
 				method: 'POST',
-				headers: { 'content-type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ newPagePath }),
+				headers: { cookie: createPage.cookie, 'content-type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ newPagePath, _csrf: createPage.token }),
 				redirect: 'manual'
 			})
 			expect(createResponse.status).toBe(302)
 			expect(createResponse.headers.get('location')).toBe(
 				`/manage-prototype/templates/created?newPagePath=${encodeURIComponent(newPagePath)}`
 			)
+
+			const rejectedResponse = await fetch(manageUrl('create'), {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ newPagePath: '/no-token' }),
+				redirect: 'manual'
+			})
+			expect(rejectedResponse.status).toBe(403)
+			expect(await rejectedResponse.text()).toContain('Your form has expired')
 
 			const createdResponse = await fetch(root + newPagePath)
 			expect(createdResponse.status).toBe(200)

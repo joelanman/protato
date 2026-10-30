@@ -26,6 +26,7 @@
       <h1 class="govuk-heading-l">{{ pageName }}</h1>
 
       <form method="post">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
 
         {{ govukInput({
           errorMessage: {
