@@ -27,7 +27,7 @@ describe('templatePreview', () => {
 		expect(next).not.toHaveBeenCalled()
 	})
 
-	it('passes a not found error when the template file does not exist', () => {
+	it('falls through when the template file does not exist', () => {
 		plugins.getTemplateFilePath.mockReturnValueOnce(undefined)
 
 		const request = { query: { packageName: 'test-plugin', templatePath: '/templates/missing.html' } }
@@ -37,12 +37,6 @@ describe('templatePreview', () => {
 		templatePreview(request, response, next)
 
 		expect(response.render).not.toHaveBeenCalled()
-		expect(next).toHaveBeenCalledWith(
-			expect.objectContaining({
-				status: 404,
-				message: 'Template not found: test-plugin /templates/missing.html',
-				reason: 'There is no template at /templates/missing.html.'
-			})
-		)
+		expect(next).toHaveBeenCalledWith()
 	})
 })

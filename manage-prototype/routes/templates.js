@@ -3,7 +3,6 @@ import path from 'node:path'
 import express from 'express'
 import { getPaths } from '../../lib/paths.js'
 import plugins from '../../lib/plugins.js'
-import { templateNotFound } from '../template-not-found.js'
 
 const router = express.Router()
 
@@ -36,7 +35,7 @@ router.get('/create', (request, response, next) => {
 	const { packageName, templatePath } = request.query
 	const templateConfig = plugins.getTemplate(packageName, templatePath)
 	if (!templateConfig) {
-		return next(templateNotFound(packageName, templatePath))
+		return next()
 	}
 
 	response.render('templates/create', {
@@ -51,7 +50,7 @@ router.post('/create', (request, response, next) => {
 	const { packageName, templatePath } = request.query
 	const templateFilePath = plugins.getTemplateFilePath(packageName, templatePath)
 	if (!templateFilePath) {
-		return next(templateNotFound(packageName, templatePath))
+		return next()
 	}
 
 	let newPagePath = (request.body.newPagePath || '')
