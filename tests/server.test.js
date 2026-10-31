@@ -110,11 +110,16 @@ describe('Server', () => {
 			expect(html).not.toContain('/manage-prototype/templates')
 			expect(html).not.toContain('/manage-prototype/plugins')
 
-			// the password page's assets must load without a password too
-			const stylesheet = await fetch(root + '/manage-prototype/public/stylesheets/manage-prototype.css')
+			// the password page's assets must load without a password too. No redirects:
+			// following one would turn the auth redirect into a 200 password page.
+			const stylesheet = await fetch(root + '/manage-prototype/public/stylesheets/manage-prototype.css', {
+				redirect: 'manual'
+			})
 			expect(stylesheet.status).toBe(200)
 
-			const script = await fetch(root + '/manage-prototype/govuk-frontend/dist/govuk/govuk-frontend.min.js')
+			const script = await fetch(root + '/manage-prototype/govuk-frontend/dist/govuk/govuk-frontend.min.js', {
+				redirect: 'manual'
+			})
 			expect(script.status).toBe(200)
 		})
 	})
