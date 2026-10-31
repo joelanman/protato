@@ -13,7 +13,7 @@ vi.mock('../../lib/manage-plugins/change.js', () => ({
 
 vi.mock('../../lib/manage-plugins/registry.js', () => ({
 	getPluginLists: vi.fn(),
-	refreshPluginData: vi.fn()
+	fetchAllPluginData: vi.fn()
 }))
 
 const installedPlugins = [
@@ -98,7 +98,7 @@ describe('plugin routes', () => {
 		it('does not check for updates on a page load', async () => {
 			await request(app).get('/manage-prototype/plugins')
 
-			expect(registry.refreshPluginData).not.toHaveBeenCalled()
+			expect(registry.fetchAllPluginData).not.toHaveBeenCalled()
 		})
 	})
 
@@ -106,7 +106,7 @@ describe('plugin routes', () => {
 		it('checks again, then returns to the plugins page', async () => {
 			const response = await request(app).post('/manage-prototype/plugins/check-for-updates')
 
-			expect(registry.refreshPluginData).toHaveBeenCalledOnce()
+			expect(registry.fetchAllPluginData).toHaveBeenCalledOnce()
 			expect(response.status).toBe(302)
 			expect(response.headers.location).toBe('/manage-prototype/plugins')
 		})
