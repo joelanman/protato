@@ -1,23 +1,24 @@
-// manage prototype - app
+// manage prototype - session app
 //
-// Sub-app mounted by the prototype server at /manage-prototype.
-// Handles pages that need the session (password, clear data)
-// plus static assets.
+// Pages that need the prototype session (password, clear data) plus the manage
+// static assets. Mounted at /manage-prototype by the prototype app (lib/app.js)
+// and by its error app, because both exist in production.
 //
-// In development the dev server proxies these pages here before its own manage
-// app sees them, because they need this app's session. It reads the paths from
-// pagePaths, so adding a page here is enough.
+// In development the dev server proxies this app's pages to the prototype
+// server before its own manage app sees them, because the session lives there.
+// It reads the paths from pagePaths, so adding a page here is enough.
 
 import express from 'express'
-import { getConfig } from '../lib/config.js'
-import { getPaths } from '../lib/paths.js'
-import managePrototypeNunjucks from './nunjucks.js'
+import { getConfig } from '../../lib/config.js'
+import { getPaths } from '../../lib/paths.js'
+import managePrototypeNunjucks from '../nunjucks.js'
+import { clearDataPagePath, govukFrontendPath, managePath, passwordPagePath, publicAssetsPath } from '../paths.js'
 
 function getSafeReturnURL(returnURL = '/') {
 	if (
 		typeof returnURL === 'string' &&
 		returnURL.startsWith('/') &&
-		!returnURL.startsWith('/manage-prototype/password') &&
+		!returnURL.startsWith(managePath(passwordPagePath)) &&
 		!returnURL.startsWith('//')
 	) {
 		return returnURL
@@ -29,7 +30,7 @@ function getSafeReturnURL(returnURL = '/') {
 // pagePaths are both read from this list.
 const pages = [
 	{
-		path: '/clear-data',
+		path: clearDataPagePath,
 		get: (request, response) => {
 			response.render('clear-data')
 		},
@@ -39,7 +40,7 @@ const pages = [
 		}
 	},
 	{
-		path: '/password',
+		path: passwordPagePath,
 		get: (request, response) => {
 			response.render('password', {
 				error: request.query.error,
@@ -54,7 +55,7 @@ const pages = [
 				response.redirect(getSafeReturnURL(request.body.returnURL))
 			} else {
 				const returnURL = encodeURIComponent(request.body.returnURL)
-				response.redirect('/manage-prototype/password?error=wrong-password&returnURL=' + returnURL)
+				response.redirect(managePath(passwordPagePath) + '?error=wrong-password&returnURL=' + returnURL)
 			}
 		}
 	}
@@ -64,15 +65,15 @@ const pages = [
 // literal, because the dev server mounts them as proxy prefixes.
 const pagePaths = pages.map((page) => page.path)
 
-const getApp = () => {
+const getSessionApp = () => {
 	const app = express()
 	const paths = getPaths()
 
 	managePrototypeNunjucks.configure(app)
 
 	// static assets
-	app.use('/public', express.static(paths.managePrototype.public))
-	app.use('/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
+	app.use(publicAssetsPath, express.static(paths.managePrototype.public))
+	app.use(govukFrontendPath, express.static(paths.managePrototype.govukFrontend))
 
 	for (const page of pages) {
 		app.get(page.path, page.get)
@@ -82,4 +83,4 @@ const getApp = () => {
 	return app
 }
 
-export { getApp, pagePaths }
+export { getSessionApp, pagePaths }

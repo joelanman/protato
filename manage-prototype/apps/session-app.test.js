@@ -1,13 +1,13 @@
 import express from 'express'
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getApp, pagePaths } from './app.js'
+import { getSessionApp, pagePaths } from './session-app.js'
 
-vi.mock('../lib/config.js', () => ({
+vi.mock('../../lib/config.js', () => ({
 	getConfig: vi.fn(() => ({ passwords: ['secret'] }))
 }))
 
-describe('manage prototype app', () => {
+describe('manage prototype session app', () => {
 	let app, session
 
 	beforeEach(() => {
@@ -19,7 +19,7 @@ describe('manage prototype app', () => {
 			req.session = session
 			next()
 		})
-		app.use('/manage-prototype', getApp())
+		app.use('/manage-prototype', getSessionApp())
 	})
 
 	it('lists the paths it serves, so the dev server can proxy them', () => {

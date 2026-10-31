@@ -3,8 +3,8 @@ import path from 'node:path'
 import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { installPlugin, uninstallPlugin, updatePlugin } from '../lib/manage-plugins/change.js'
-import * as registry from '../lib/manage-plugins/registry.js'
+import { installPlugin, uninstallPlugin, updatePlugin } from '../../lib/manage-plugins/change.js'
+import * as registry from '../../lib/manage-plugins/registry.js'
 import { getDevApp } from './dev-app.js'
 
 const { packageName, template, templatesByPlugin, templateFilePath } = vi.hoisted(() => {
@@ -28,7 +28,7 @@ const { packageName, template, templatesByPlugin, templateFilePath } = vi.hoiste
 
 const invalidPathMessage = "Path must not include !$&'()*+,;=:?#[]@.% or space"
 
-vi.mock('../lib/config.js', () => ({
+vi.mock('../../lib/config.js', () => ({
 	getConfig: vi.fn(() => ({
 		env: 'development',
 		serviceName: 'Test Service',
@@ -36,7 +36,7 @@ vi.mock('../lib/config.js', () => ({
 	}))
 }))
 
-vi.mock('../lib/paths.js', () => ({
+vi.mock('../../lib/paths.js', () => ({
 	getPaths: vi.fn(() => ({
 		package: '/mock/package',
 		project: '/mock/project',
@@ -51,7 +51,7 @@ vi.mock('../lib/paths.js', () => ({
 	}))
 }))
 
-vi.mock('../lib/plugins.js', async (importOriginal) => {
+vi.mock('../../lib/plugins.js', async (importOriginal) => {
 	const actual = await importOriginal()
 
 	return {
@@ -69,18 +69,18 @@ vi.mock('../lib/plugins.js', async (importOriginal) => {
 	}
 })
 
-vi.mock('../lib/manage-plugins/registry.js', () => ({
+vi.mock('../../lib/manage-plugins/registry.js', () => ({
 	getPluginLists: vi.fn(() => ({ installedPlugins: [], availablePlugins: [] })),
 	fetchAllPluginData: vi.fn()
 }))
 
-vi.mock('../lib/manage-plugins/change.js', () => ({
+vi.mock('../../lib/manage-plugins/change.js', () => ({
 	installPlugin: vi.fn(),
 	uninstallPlugin: vi.fn(),
 	updatePlugin: vi.fn()
 }))
 
-vi.mock('../lib/dev/livereload.js', () => ({
+vi.mock('../../lib/dev/livereload.js', () => ({
 	default: {
 		route: vi.fn((req, res) => res.send('livereload'))
 	}
