@@ -8,8 +8,9 @@
 //   devApp            apps/dev-app.js         must survive prototype restarts
 //   templatePreview   routes/preview.js       needs the prototype's views
 //
-// The dev server imports devApp directly, so the plugin manager is never loaded
-// in production. proxyPaths is what it proxies to the prototype server.
+// Both apps start from apps/base-app.js (Express, views, static assets). The dev
+// server imports devApp directly, so the plugin manager is never loaded in
+// production. proxyPaths is what it proxies to the prototype server.
 
 import { getSessionApp, pagePaths } from './apps/session-app.js'
 import { templatePreviewPath } from './routes/preview.js'

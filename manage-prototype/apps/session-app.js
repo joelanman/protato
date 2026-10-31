@@ -5,9 +5,8 @@
 // the dev server proxies this app's pages to the prototype server (see
 // pagePaths) before its own manage app sees them, because the session lives here.
 
-import express from 'express'
 import { getConfig } from '../../lib/config.js'
-import { configureManageApp } from '../configure-app.js'
+import { createBaseApp } from './base-app.js'
 
 function getSafeReturnURL(returnURL = '/') {
 	if (
@@ -61,9 +60,7 @@ const pages = [
 const pagePaths = pages.map((page) => page.path)
 
 const getSessionApp = () => {
-	const app = express()
-
-	configureManageApp(app)
+	const app = createBaseApp()
 
 	for (const page of pages) {
 		app.get(page.path, page.get)

@@ -8,14 +8,12 @@ import express from 'express'
 import livereload from '../../lib/dev/livereload.js'
 import { csrf } from '../../lib/middleware/csrf.js'
 import { errorHandler, pageNotFound } from '../../lib/middleware/errors.js'
-import { configureManageApp } from '../configure-app.js'
 import pluginRoutes from '../routes/plugins.js'
 import templateRoutes from '../routes/templates.js'
+import { createBaseApp } from './base-app.js'
 
 const getDevApp = () => {
-	const app = express()
-
-	configureManageApp(app)
+	const app = createBaseApp()
 
 	// Requests for pages served by the prototype server are proxied before they
 	// reach this app (lib/dev/server.js), so everything here is ours to parse.
