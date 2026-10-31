@@ -1,19 +1,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import express from 'express'
-import { notFound } from '../../lib/middleware/errors.js'
 import { getPaths } from '../../lib/paths.js'
 import plugins from '../../lib/plugins.js'
+import { managePath, templatesPath } from '../paths.js'
+import { templateNotFound } from './template-not-found.js'
 
 const router = express.Router()
 
 const invalidChars = "!$&'()*+,;=:?#[]@.% "
-
-function templateNotFound(packageName, templatePath) {
-	const reason = templatePath ? `There is no template at ${templatePath}.` : 'That template could not be found.'
-
-	return notFound(`Template not found: ${packageName} ${templatePath}`, reason)
-}
 
 // Returns the problem with the path, or nothing if it's usable
 function getPathError(newPagePath) {
@@ -26,8 +21,8 @@ function getPathError(newPagePath) {
 	}
 }
 
-// there is a separate template-preview.js route
-// mounted by the prototype app for accurate previews
+// Previews are rendered by the prototype app (see routes/preview.js), not here,
+// so the page looks like a real page
 
 // templates list
 router.get('/', (request, response) => {
@@ -74,7 +69,7 @@ router.post('/create', (request, response, next) => {
 			newPagePath,
 			error: pathError
 		})
-		return response.redirect(`/manage-prototype/templates/create?${query.toString()}`)
+		return response.redirect(`${managePath(templatesPath)}/create?${query.toString()}`)
 	}
 
 	// the page is linked to by its absolute path, so always start with a slash
@@ -92,13 +87,13 @@ router.post('/create', (request, response, next) => {
 			newPagePath,
 			error: 'Path already exists'
 		})
-		return response.redirect(`/manage-prototype/templates/create?${query.toString()}`)
+		return response.redirect(`${managePath(templatesPath)}/create?${query.toString()}`)
 	}
 
 	fs.mkdirSync(path.dirname(filePath), { recursive: true })
 	fs.copyFileSync(templateFilePath, filePath)
 
-	response.redirect(`/manage-prototype/templates/created?newPagePath=${encodeURIComponent(newPagePath)}`)
+	response.redirect(`${managePath(templatesPath)}/created?newPagePath=${encodeURIComponent(newPagePath)}`)
 })
 
 // template created confirmation

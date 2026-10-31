@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import plugins from '../../lib/plugins.js'
-import templatePreview from './template-preview.js'
+import templatePreview from './preview.js'
 
 vi.mock('../../lib/plugins.js', () => ({
 	default: {
