@@ -50,7 +50,6 @@ const stopProcess = async (proc) => {
 	}
 }
 
-// Reads the CSRF token and cookie from a rendered form, the way a browser would
 const get = (url) => fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
 
 // The dev server and the prototype server log to here, so a failure that only
@@ -104,6 +103,7 @@ const readPage = async (response) => {
 	return body
 }
 
+// Reads the CSRF token and cookie from a rendered form, the way a browser would
 const readForm = async (formPath) => {
 	const response = await get(root + formPath)
 	const html = await response.text()

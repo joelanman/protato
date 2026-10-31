@@ -119,8 +119,8 @@ describe('plugin routes', () => {
 	describe('POST /install', () => {
 		it('installs the plugin and reports success', async () => {
 			installPlugin.mockResolvedValue({
-				ok: true,
-				packages: ['new-plugin', 'needed-plugin']
+				outcome: 'installed',
+				installedPackages: ['new-plugin', 'needed-plugin']
 			})
 
 			const response = await request(app)
@@ -141,8 +141,8 @@ describe('plugin routes', () => {
 
 		it('reports npm failure', async () => {
 			installPlugin.mockResolvedValue({
-				ok: false,
-				error: 'The plugin could not be installed.',
+				outcome: 'failed',
+				message: 'The plugin could not be installed.',
 				npmOutput: 'npm error 404 Not Found'
 			})
 
@@ -162,7 +162,7 @@ describe('plugin routes', () => {
 		})
 
 		it('refuses a second change while one is running', async () => {
-			installPlugin.mockResolvedValue({ busy: true })
+			installPlugin.mockResolvedValue({ outcome: 'busy' })
 
 			const response = await request(app)
 				.post('/manage-prototype/plugins/install')
@@ -174,7 +174,7 @@ describe('plugin routes', () => {
 		})
 
 		it('shows a server-side refusal', async () => {
-			installPlugin.mockResolvedValue({ error: 'Choose a valid npm package name.' })
+			installPlugin.mockResolvedValue({ outcome: 'failed', message: 'Choose a valid npm package name.' })
 
 			const response = await request(app)
 				.post('/manage-prototype/plugins/install')
@@ -186,7 +186,7 @@ describe('plugin routes', () => {
 		})
 
 		it('reports that there is nothing to do when already installed', async () => {
-			installPlugin.mockResolvedValue({ noChange: 'asset-plugin is already installed.' })
+			installPlugin.mockResolvedValue({ outcome: 'noChange', message: 'asset-plugin is already installed.' })
 
 			const response = await request(app)
 				.post('/manage-prototype/plugins/install')
@@ -201,8 +201,8 @@ describe('plugin routes', () => {
 	describe('POST /uninstall', () => {
 		it('uninstalls the plugins and reports success', async () => {
 			uninstallPlugin.mockResolvedValue({
-				ok: true,
-				packages: ['asset-plugin', 'dependent-plugin']
+				outcome: 'uninstalled',
+				removedPackages: ['asset-plugin', 'dependent-plugin']
 			})
 
 			const response = await request(app)
@@ -221,7 +221,7 @@ describe('plugin routes', () => {
 		})
 
 		it('shows the refusal for a protected plugin', async () => {
-			uninstallPlugin.mockResolvedValue({ error: 'protato cannot be uninstalled.' })
+			uninstallPlugin.mockResolvedValue({ outcome: 'failed', message: 'protato cannot be uninstalled.' })
 
 			const response = await request(app)
 				.post('/manage-prototype/plugins/uninstall')
@@ -236,8 +236,8 @@ describe('plugin routes', () => {
 	describe('POST /update', () => {
 		it('updates the plugin and reports success', async () => {
 			updatePlugin.mockResolvedValue({
-				ok: true,
-				updatedPackage: 'asset-plugin',
+				outcome: 'updated',
+				packageName: 'asset-plugin',
 				installedPackages: ['needed-plugin']
 			})
 
@@ -259,7 +259,7 @@ describe('plugin routes', () => {
 		})
 
 		it('reports that there is nothing to do when already up to date', async () => {
-			updatePlugin.mockResolvedValue({ noChange: 'asset-plugin is already up to date.' })
+			updatePlugin.mockResolvedValue({ outcome: 'noChange', message: 'asset-plugin is already up to date.' })
 
 			const response = await request(app)
 				.post('/manage-prototype/plugins/update')
@@ -276,7 +276,7 @@ describe('plugin routes', () => {
 		})
 
 		it('refuses a second change while one is running', async () => {
-			updatePlugin.mockResolvedValue({ busy: true })
+			updatePlugin.mockResolvedValue({ outcome: 'busy' })
 
 			const response = await request(app)
 				.post('/manage-prototype/plugins/update')
@@ -288,7 +288,7 @@ describe('plugin routes', () => {
 		})
 
 		it('reports a failed update', async () => {
-			updatePlugin.mockResolvedValue({ ok: false, error: 'The plugin could not be updated.' })
+			updatePlugin.mockResolvedValue({ outcome: 'failed', message: 'The plugin could not be updated.' })
 
 			const response = await request(app)
 				.post('/manage-prototype/plugins/update')

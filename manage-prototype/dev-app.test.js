@@ -393,10 +393,17 @@ describe('manage prototype dev app', () => {
 		let token
 
 		beforeEach(async () => {
-			vi.mocked(installPlugin).mockResolvedValue({ packages: ['new-plugin'] })
-			vi.mocked(uninstallPlugin).mockResolvedValue({ packages: ['asset-plugin'] })
+			vi.mocked(installPlugin).mockResolvedValue({
+				outcome: 'installed',
+				installedPackages: ['new-plugin']
+			})
+			vi.mocked(uninstallPlugin).mockResolvedValue({
+				outcome: 'uninstalled',
+				removedPackages: ['asset-plugin']
+			})
 			vi.mocked(updatePlugin).mockResolvedValue({
-				updatedPackage: 'asset-plugin',
+				outcome: 'updated',
+				packageName: 'asset-plugin',
 				installedPackages: ['needed-plugin']
 			})
 
