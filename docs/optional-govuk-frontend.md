@@ -278,7 +278,7 @@ layout would break. Either name temporary files `.tmp/sass/<variant>.scss`, or
 change `compileSass` to accept an explicit output name. The explicit output
 name is clearer and easier to test.
 
-Also add a guard for a missing `app/assets/sass` directory. `processSass()`
+Also add a guard for a missing `app/assets/sass` directory. `buildSass()`
 currently calls `fs.readdirSync(paths.sass)` unconditionally, so a project with
 no Sass folder fails to build.
 
