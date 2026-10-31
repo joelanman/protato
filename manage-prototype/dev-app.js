@@ -26,7 +26,7 @@ const getDevApp = () => {
 	app.use('/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
 
 	// live reload is a long lived event stream and needs no token
-	app.get('/livereload', livereload.getRoute())
+	app.get('/livereload', livereload.route)
 
 	// Every route below is a manage route: pages render the token and posts
 	// check it. Everything is protected by default rather than per route.

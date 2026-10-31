@@ -82,7 +82,7 @@ vi.mock('../lib/manage-plugins/change.js', () => ({
 
 vi.mock('../lib/dev/livereload.js', () => ({
 	default: {
-		getRoute: vi.fn(() => (req, res) => res.send('livereload'))
+		route: vi.fn((req, res) => res.send('livereload'))
 	}
 }))
 
