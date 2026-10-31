@@ -45,6 +45,11 @@ A proxy config is only used when the package does not have its own
 `govuk-prototype-kit.config.json`. It cannot override a config supplied by the
 package itself.
 
+Proxy configs declare paths only. Descriptions and homepages come from the
+package's `package.json`, or from npm when the package is not installed, so they
+stay current without a Protato release and do not change when a plugin is
+installed.
+
 To add a proxy config for another package, create `app/plugin-proxy.json` in the
 project. Each key is a package name and each value is the plugin config to use.
 Paths are relative to the package directory and start with `/`:

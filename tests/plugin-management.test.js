@@ -25,6 +25,7 @@ const prototypeRoot = 'http://localhost:' + (port + 10)
 
 // installed from the plugins page, and updated by it
 const installPackageName = 'e2e-plugin-install'
+const installPackageHomepage = 'https://example.com/e2e-plugin-install'
 // installed with npm before the server starts, so the page can offer an update
 const updatePackageName = 'e2e-plugin-update'
 
@@ -141,6 +142,7 @@ describe('plugin management end to end', () => {
 			packageName: installPackageName,
 			version: '1.0.0',
 			description: 'Test plugin to install',
+			homepage: installPackageHomepage,
 			stylesheet: colour(1)
 		})
 
@@ -249,6 +251,10 @@ describe('plugin management end to end', () => {
 			expect(await readPage(await get(root + url))).toContain(colour(1))
 
 			expect(await readPage(await get(root))).toContain(url)
+
+			// the link comes from the installed package.json
+			const pluginsPage = await readForm('/manage-prototype/plugins')
+			expect(pluginsPage.html).toContain(`href="${installPackageHomepage}"`)
 		},
 		TIMEOUT_MS
 	)

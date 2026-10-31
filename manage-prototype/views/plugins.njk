@@ -1,23 +1,65 @@
 {% extends "layout.njk" %}
 
-{% macro updateForm(plugin) %}
-  <form method="post" action="/manage-prototype/plugins/update">
+{# a button that posts this plugin's package name to a change route, such as 'update' #}
+{% macro pluginForm(plugin, action) %}
+  <form method="post" action="/manage-prototype/plugins/{{ action }}">
     <input type="hidden" name="_csrf" value="{{ csrfToken }}">
     <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
     <button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button">
-      Update<span class="govuk-visually-hidden"> {{ plugin.name }}</span>
+      {{ action | capitalize }}<span class="govuk-visually-hidden"> {{ plugin.name }}</span>
     </button>
   </form>
 {% endmacro %}
 
-{% macro uninstallForm(plugin) %}
-  <form method="post" action="/manage-prototype/plugins/uninstall">
-    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-    <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
-    <button class="govuk-button govuk-button--warning govuk-!-margin-bottom-0" data-module="govuk-button">
-      Uninstall<span class="govuk-visually-hidden"> {{ plugin.name }}</span>
-    </button>
-  </form>
+{# the plugins as a summary list, used for both the installed and available lists #}
+{% macro pluginList(plugins, showInstallStatus) %}
+  <dl class="govuk-summary-list">
+    {% for plugin in plugins %}
+      <div class="govuk-summary-list__row">
+        <dt class="govuk-summary-list__key">
+          {% if plugin.homepage %}
+            <a class="govuk-link" href="{{ plugin.homepage }}">{{ plugin.name }}<span class="govuk-visually-hidden"> homepage</span></a>
+          {% else %}
+            {{ plugin.name }}
+          {% endif %}
+          {% if plugin.publisher %}
+            <span class="govuk-caption-m">From {{ plugin.publisher }}</span>
+          {% endif %}
+        </dt>
+
+        <dd class="govuk-summary-list__value">
+          {% if showInstallStatus %}
+            {% if plugin.installed %}
+              <p class="govuk-body">
+                Version {{ plugin.version }}
+                {% if plugin.updateAvailable %}
+                  (version {{ plugin.latestVersion }} available)
+                {% endif %}
+              </p>
+            {% else %}
+              <p class="govuk-body">Not installed</p>
+            {% endif %}
+          {% endif %}
+
+          {% if plugin.description %}
+            <p class="govuk-body">{{ plugin.description }}</p>
+          {% endif %}
+        </dd>
+
+        <dd class="govuk-summary-list__actions">
+          {% if plugin.actions.length %}
+            <div{% if plugin.actions.length > 1 %} class="govuk-button-group"{% endif %}>
+              {% for action in plugin.actions %}
+                {{ pluginForm(plugin, action) }}
+              {% endfor %}
+            </div>
+          {% elif plugin.protectedPackage %}
+            <p class="govuk-body">Cannot be uninstalled</p>
+          {% endif %}
+        </dd>
+      </div>
+    {% endfor %}
+  </dl>
 {% endmacro %}
 
 {% block content %}
@@ -45,106 +87,26 @@
       {% endif %}
 
       {% if installedPlugins.length %}
-        <dl class="govuk-summary-list">
-          {% for plugin in installedPlugins %}
-            <div class="govuk-summary-list__row" data-plugin-package-name="{{ plugin.packageName }}">
-              <dt class="govuk-summary-list__key">
-                {{ plugin.name }}
-                {% if plugin.publisher %}
-                  <span class="govuk-caption-m">From {{ plugin.publisher }}</span>
-                {% endif %}
-              </dt>
-              <dd class="govuk-summary-list__value">
-                {% if plugin.installed %}
-                  <p class="govuk-body">
-                    Version {{ plugin.version }}
-                    {% if plugin.updateAvailable %}
-                      (version {{ plugin.latestVersion }} available)
-                    {% endif %}
-                  </p>
-                {% else %}
-                  <p class="govuk-body">Not installed</p>
-                {% endif %}
-
-                {% if plugin.description %}
-                  <p class="govuk-body">{{ plugin.description }}</p>
-                {% endif %}
-              </dd>
-              <dd class="govuk-summary-list__actions">
-                {% if plugin.protectedPackage %}
-                  {% if plugin.updateAvailable %}
-                    {{ updateForm(plugin) }}
-                  {% else %}
-                    <p class="govuk-body">Cannot be uninstalled</p>
-                  {% endif %}
-                {% elif plugin.installed %}
-                  {% if plugin.updateAvailable %}
-                    <div class="govuk-button-group">
-                      {{ updateForm(plugin) }}
-                      {{ uninstallForm(plugin) }}
-                    </div>
-                  {% else %}
-                    {{ uninstallForm(plugin) }}
-                  {% endif %}
-                {% else %}
-                  <form method="post" action="/manage-prototype/plugins/install">
-                    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                    <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
-                    <button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button">
-                      Install<span class="govuk-visually-hidden"> {{ plugin.name }}</span>
-                    </button>
-                  </form>
-                {% endif %}
-              </dd>
-            </div>
-          {% endfor %}
-        </dl>
+        {{ pluginList(installedPlugins, true) }}
       {% else %}
         <p class="govuk-body">No plugins are installed.</p>
       {% endif %}
 
-      <form method="post" action="/manage-prototype/plugins/check-for-updates">
-        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-        <button class="govuk-button govuk-button--secondary" data-module="govuk-button">
-          Check for updates
-        </button>
-      </form>
-
       <h2 class="govuk-heading-m">Available plugins</h2>
 
       {% if availablePlugins.length %}
-        <dl class="govuk-summary-list">
-          {% for plugin in availablePlugins %}
-            <div class="govuk-summary-list__row" data-plugin-package-name="{{ plugin.packageName }}">
-              <dt class="govuk-summary-list__key">
-                {{ plugin.name }}
-                {% if plugin.publisher %}
-                  <span class="govuk-caption-m">From {{ plugin.publisher }}</span>
-                {% endif %}
-              </dt>
-              <dd class="govuk-summary-list__value">
-                <p class="govuk-body">Not installed</p>
-
-                {% if plugin.description %}
-                  <p class="govuk-body">{{ plugin.description }}</p>
-                {% endif %}
-              </dd>
-              <dd class="govuk-summary-list__actions">
-                <form method="post" action="/manage-prototype/plugins/install">
-                  <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-                  <input type="hidden" name="packageName" value="{{ plugin.packageName }}">
-                  <button class="govuk-button govuk-button--secondary govuk-!-margin-bottom-0" data-module="govuk-button">
-                    Install<span class="govuk-visually-hidden"> {{ plugin.name }}</span>
-                  </button>
-                </form>
-              </dd>
-            </div>
-          {% endfor %}
-        </dl>
+        {{ pluginList(availablePlugins, false) }}
       {% else %}
         <p class="govuk-body">There are no other plugins available.</p>
       {% endif %}
     </div>
   </div>
+
+  <form method="post" action="/manage-prototype/plugins/check-for-updates">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+    <button class="govuk-button govuk-button--secondary" data-module="govuk-button">
+      Check for updates
+    </button>
+  </form>
 
 {% endblock %}

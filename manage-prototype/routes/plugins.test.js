@@ -72,12 +72,10 @@ describe('plugin routes', () => {
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugins')
 			expect(registry.getPluginLists).toHaveBeenCalledOnce()
-			expect(model).toEqual({
-				pageName: 'Plugins',
-				installedPlugins,
-				availablePlugins,
-				availableUpdatesCount: 0
-			})
+			expect(model.pageName).toBe('Plugins')
+			expect(model.installedPlugins.map((plugin) => plugin.packageName)).toEqual(['asset-plugin'])
+			expect(model.availablePlugins.map((plugin) => plugin.packageName)).toEqual(['new-plugin'])
+			expect(model.availableUpdatesCount).toBe(0)
 		})
 
 		it('counts the plugins that have updates available', async () => {
@@ -99,6 +97,59 @@ describe('plugin routes', () => {
 			await request(app).get('/manage-prototype/plugins')
 
 			expect(registry.fetchAllPluginData).not.toHaveBeenCalled()
+		})
+	})
+
+	describe('plugin actions', () => {
+		const readInstalledActions = async (plugin) => {
+			registry.getPluginLists.mockReturnValue({ installedPlugins: [plugin], availablePlugins: [] })
+
+			const response = await request(app).get('/manage-prototype/plugins')
+
+			return readRender(response).model.installedPlugins[0].actions
+		}
+
+		it('offers install for a plugin that is not installed', async () => {
+			const actions = await readInstalledActions({ packageName: 'gone-plugin', installed: false })
+
+			expect(actions).toEqual(['install'])
+		})
+
+		it('offers uninstall for an installed plugin with no update', async () => {
+			const actions = await readInstalledActions({ packageName: 'asset-plugin', installed: true })
+
+			expect(actions).toEqual(['uninstall'])
+		})
+
+		it('offers update and uninstall when an update is available', async () => {
+			const actions = await readInstalledActions({
+				packageName: 'asset-plugin',
+				installed: true,
+				updateAvailable: true
+			})
+
+			expect(actions).toEqual(['update', 'uninstall'])
+		})
+
+		it('offers only update for a protected plugin', async () => {
+			const actions = await readInstalledActions({
+				packageName: 'govuk-frontend',
+				installed: true,
+				protectedPackage: true,
+				updateAvailable: true
+			})
+
+			expect(actions).toEqual(['update'])
+		})
+
+		it('offers nothing for a protected plugin with no update', async () => {
+			const actions = await readInstalledActions({
+				packageName: 'protato',
+				installed: true,
+				protectedPackage: true
+			})
+
+			expect(actions).toEqual([])
 		})
 	})
 

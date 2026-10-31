@@ -5,14 +5,42 @@ import * as registry from '../../lib/manage-plugins/registry.js'
 
 const router = express.Router()
 
+// What the page can offer for a plugin, as the names of the change routes. The
+// template turns each name into a button, and capitalises it for the label. The
+// rules are the same the change code checks before it runs, so the page cannot
+// offer something that would be refused.
+function getPluginActions(plugin) {
+	if (!plugin.installed) {
+		return ['install']
+	}
+
+	const actions = []
+
+	if (plugin.updateAvailable) {
+		actions.push('update')
+	}
+
+	if (!plugin.protectedPackage) {
+		actions.push('uninstall')
+	}
+
+	return actions
+}
+
+// The page renders the same list for installed and available plugins, so both
+// get their buttons worked out here rather than in the template.
+function withPluginActions(plugins) {
+	return plugins.map((plugin) => ({ ...plugin, actions: getPluginActions(plugin) }))
+}
+
 router.get('/', (request, response) => {
 	const { installedPlugins, availablePlugins } = registry.getPluginLists()
 	const availableUpdatesCount = installedPlugins.filter((plugin) => plugin.updateAvailable).length
 
 	response.render('plugins', {
 		pageName: 'Plugins',
-		installedPlugins,
-		availablePlugins,
+		installedPlugins: withPluginActions(installedPlugins),
+		availablePlugins: withPluginActions(availablePlugins),
 		availableUpdatesCount
 	})
 })

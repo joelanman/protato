@@ -21,16 +21,22 @@ function writeFile(dir, filePath, contents) {
 }
 
 // Packs a plugin as a .tgz the way npm would publish it, so npm can install it.
-function createPluginTarball({ packageName, version, description, stylesheet }) {
+function createPluginTarball({ packageName, version, description, homepage, stylesheet }) {
 	const sourceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'protato-plugin-source-'))
 	const packDir = fs.mkdtempSync(path.join(os.tmpdir(), 'protato-plugin-tarball-'))
 
-	writeFile(sourceDir, 'package.json', {
+	const packageJson = {
 		name: packageName,
 		version,
 		description,
 		files: ['govuk-prototype-kit.config.json', 'css']
-	})
+	}
+
+	if (homepage) {
+		packageJson.homepage = homepage
+	}
+
+	writeFile(sourceDir, 'package.json', packageJson)
 
 	writeFile(sourceDir, 'govuk-prototype-kit.config.json', {
 		meta: { description },
