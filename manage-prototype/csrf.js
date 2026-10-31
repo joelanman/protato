@@ -7,7 +7,7 @@
 
 import cookieParser from 'cookie-parser'
 import { doubleCsrf } from 'csrf-csrf'
-import { getConfig } from '../config.js'
+import { getConfig } from '../lib/config.js'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 

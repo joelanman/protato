@@ -6,7 +6,7 @@ const { config } = vi.hoisted(() => ({
 	config: { env: 'development', csrfSecret: undefined }
 }))
 
-vi.mock('../config.js', () => ({
+vi.mock('../lib/config.js', () => ({
 	getConfig: () => config
 }))
 

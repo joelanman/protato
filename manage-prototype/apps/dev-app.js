@@ -6,8 +6,8 @@
 
 import express from 'express'
 import livereload from '../../lib/dev/livereload.js'
-import { csrf } from '../../lib/middleware/csrf.js'
 import { errorHandler, pageNotFound } from '../../lib/middleware/errors.js'
+import { csrf } from '../csrf.js'
 import pluginRoutes from '../routes/plugins.js'
 import templateRoutes from '../routes/templates.js'
 import { createBaseApp } from './base-app.js'
