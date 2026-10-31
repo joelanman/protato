@@ -5,25 +5,6 @@ import { checkForUpdates, listAvailablePlugins, listInstalledPlugins } from '../
 
 const router = express.Router()
 
-// The result page reports the outcome, so no HTTP status is set: the request
-// was handled and the page tells the user what happened.
-function getOutcome(result, outcome) {
-	if (result.busy) {
-		return 'busy'
-	}
-
-	if (result.ok === false || result.error) {
-		return 'failed'
-	}
-
-	if (result.noChange) {
-		return 'noChange'
-	}
-
-	return outcome
-}
-
-// plugins list
 router.get('/', async (request, response) => {
 	const installedPlugins = await checkForUpdates(listInstalledPlugins())
 	const availableUpdatesCount = installedPlugins.filter((plugin) => plugin.updateAvailable).length
@@ -36,19 +17,17 @@ router.get('/', async (request, response) => {
 	})
 })
 
-// Install, update and uninstall run straight from the list. The checks a change
-// has to pass (valid name, protected package, already in the requested state,
-// dependents) happen inside the change itself, so posting the form directly
-// cannot bypass them.
+// Changes report their outcome on the result page instead of an HTTP status,
+// and check their own preconditions so a direct POST cannot bypass the UI.
 router.post('/install', async (request, response) => {
 	const result = await installPlugin(request.body.packageName)
 
 	response.render('plugin-result', {
 		pageName: 'Plugins',
-		outcome: getOutcome(result, 'installed'),
-		message: result.error ?? result.noChange,
+		outcome: result.outcome,
+		message: result.message,
 		npmOutput: result.npmOutput,
-		installedPackages: result.packages
+		installedPackages: result.installedPackages
 	})
 })
 
@@ -57,10 +36,10 @@ router.post('/uninstall', async (request, response) => {
 
 	response.render('plugin-result', {
 		pageName: 'Plugins',
-		outcome: getOutcome(result, 'uninstalled'),
-		message: result.error ?? result.noChange,
+		outcome: result.outcome,
+		message: result.message,
 		npmOutput: result.npmOutput,
-		removedPackages: result.packages
+		removedPackages: result.removedPackages
 	})
 })
 
@@ -69,10 +48,10 @@ router.post('/update', async (request, response) => {
 
 	response.render('plugin-result', {
 		pageName: 'Plugins',
-		outcome: getOutcome(result, 'updated'),
-		message: result.error ?? result.noChange,
+		outcome: result.outcome,
+		message: result.message,
 		npmOutput: result.npmOutput,
-		updatedPackage: result.updatedPackage,
+		updatedPackage: result.packageName,
 		installedPackages: result.installedPackages
 	})
 })
