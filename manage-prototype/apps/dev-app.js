@@ -8,28 +8,22 @@ import express from 'express'
 import livereload from '../../lib/dev/livereload.js'
 import { csrf } from '../../lib/middleware/csrf.js'
 import { errorHandler, pageNotFound } from '../../lib/middleware/errors.js'
-import { getPaths } from '../../lib/paths.js'
-import managePrototypeNunjucks from '../nunjucks.js'
-import { govukFrontendPath, livereloadPath, pluginsPath, publicAssetsPath, templatesPath } from '../paths.js'
+import { templatesPath } from '../paths.js'
 import pluginRoutes from '../routes/plugins.js'
 import templateRoutes from '../routes/templates.js'
+import { configureManageApp } from './configure-app.js'
 
 const getDevApp = () => {
 	const app = express()
-	const paths = getPaths()
 
-	managePrototypeNunjucks.configure(app)
+	configureManageApp(app)
 
 	// Requests for pages served by the prototype server are proxied before they
 	// reach this app (lib/dev/server.js), so everything here is ours to parse.
 	app.use(express.urlencoded({ extended: true }))
 
-	// static assets
-	app.use(publicAssetsPath, express.static(paths.managePrototype.public))
-	app.use(govukFrontendPath, express.static(paths.managePrototype.govukFrontend))
-
 	// live reload is a long lived event stream and needs no token
-	app.get(livereloadPath, livereload.route)
+	app.get('/livereload', livereload.route)
 
 	// Every route below is a manage route: pages render the token and posts
 	// check it. Everything is protected by default rather than per route.
@@ -44,7 +38,7 @@ const getDevApp = () => {
 
 	// plugin management changes package.json, so it rebuilds and restarts the
 	// prototype after a change.
-	app.use(pluginsPath, pluginRoutes)
+	app.use('/plugins', pluginRoutes)
 
 	// The manage pages the prototype server serves are proxied before they reach
 	// this app (see manage-prototype/index.js), so an unmatched path is a 404. It

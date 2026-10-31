@@ -1,7 +1,7 @@
 import nunjucks from 'nunjucks'
 import { getConfig } from '../lib/config.js'
 import { getPaths } from '../lib/paths.js'
-import { govukFrontendPath, managePath } from './paths.js'
+import { govukFrontendStaticPath, managePath } from './paths.js'
 
 let nunjucksEnv
 
@@ -23,7 +23,7 @@ function getEnv() {
 
 	nunjucksEnv = nunjucks.configure(views, nunjucksConfig)
 
-	nunjucksEnv.addGlobal('assetPath', `${managePath(govukFrontendPath)}/dist/govuk/assets`)
+	nunjucksEnv.addGlobal('assetPath', `${managePath(govukFrontendStaticPath)}/dist/govuk/assets`)
 	nunjucksEnv.addGlobal('serviceName', config.serviceName)
 	nunjucksEnv.addGlobal('isDevelopment', config.env === 'development')
 

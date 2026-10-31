@@ -16,10 +16,13 @@
 // devApp itself, so the plugin manager is never loaded in production.
 
 import { getSessionApp, pagePaths } from './apps/session-app.js'
-import { managePath, templatePreviewPath } from './paths.js'
+import { managePath } from './paths.js'
 import templatePreview from './routes/preview.js'
 
-// Routes the prototype app must render to look like a real page
+// The template preview is a prototype route: it renders with the prototype's
+// views so it looks like a real page, and the dev server proxies it here.
+const templatePreviewPath = '/templates/view'
+
 const prototypeRoutes = [{ path: managePath(templatePreviewPath), handler: templatePreview }]
 
 // Paths the prototype server serves, which the dev server proxies to it
