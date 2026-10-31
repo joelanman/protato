@@ -163,8 +163,8 @@ the kit's**, and with CSRF protection and plugin updates now implemented it is
 much closer to parity. For the install/update/uninstall flow we've built, the
 core is better.
 
-The main remaining gap is **no watcher for manual npm changes**, plus some
-runtime compatibility differences versus the kit.
+The remaining gaps are **runtime compatibility differences versus the kit** and
+missing end-to-end coverage of a real npm install.
 
 ## Where Protato is better
 
@@ -224,17 +224,26 @@ than repeated in a list. An unmatched
 after its body has been parsed there is nothing left to forward. The end-to-end
 test POSTs to a proxied URL to keep that true.
 
-### 2. No package watcher for manual npm changes
+### 2. Package watcher for manual npm changes — done
 
 The kit watches `package-lock.json` and restarts/logs when plugins are added or
-removed by hand (`plugins.watchPlugins`, `lib/dev-server.js`). Protato's watcher
-only watches `app/` and `.env`. Consequences:
+removed by hand (`plugins.watchPlugins`, `lib/dev-server.js`). Protato now does
+the same, and slightly more:
 
-- `npm install some-plugin` in a terminal doesn't restart the prototype.
-- The `plugins` cache isn't cleared, so the new plugin isn't picked up until a
-  manual dev-server restart.
-- The contract/plan says this is out of scope, but it's a useful kit behaviour
-  and a likely support issue.
+- `lib/dev/watch.js` watches `package-lock.json`, as the kit does — npm always
+  writes it, including for a version change that leaves `package.json` alone,
+  and `awaitWriteFinish` avoids reading files mid-write.
+- A change clears the plugin cache, rebuilds (a new plugin brings stylesheets,
+  macros and base layouts, so a restart alone is not enough) and restarts the
+  prototype through the same `rebuildAndRestart` the plugins page uses.
+- It reloads the browser, so an open plugins page and prototype pick the change
+  up. It logs the file event and the restart rather than diffing the plugin list
+  the way the kit does.
+- Unlike the kit it does not restart while a change made from the plugins page
+  is running, and it no longer swallows a failed restart as an unhandled
+  rejection.
+
+Plan and reasoning: `docs/plugins-watcher-plan.md`.
 
 ### 3. Updates and version information — done
 
@@ -342,12 +351,11 @@ Windows behaviour are not covered.
 
 ## What to fix first
 
-1. **Watch `package.json` / `package-lock.json` and clear the plugin cache +
-   restart.**
-2. **Add `..` filtering and URL encoding to plugin paths, plus the
+1. **Add `..` filtering and URL encoding to plugin paths, plus the
    `/extension-assets` alias.**
-3. Add a real end-to-end install/update/uninstall test.
+2. Add a real end-to-end install/update/uninstall test.
 
 So: **Protato is better engineered and safer at the npm boundary, and now covers
-install, update and uninstall with CSRF protection, while the kit still has some
-operational features we don't** (most notably manual package-change detection).
+install, update and uninstall with CSRF protection and manual package-change
+detection. What is left is mostly runtime compatibility with existing plugins,
+and end-to-end coverage.**
