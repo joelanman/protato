@@ -294,10 +294,16 @@ These are adjacent to management but matter for running real prototypes:
   importing plugin sass, so the default never applies. A plugin that ships
   precompiled CSS with the old URL baked in would break, but none of the
   published plugins do.
-- **No URL encoding of plugin paths.** The kit encodes each segment. Protato
-  builds raw URLs. Spaces survive because browsers encode them, but `#`, `?` and
-  `%` in a filename would silently 404. No plugin in `govuk-plugins` has such a
-  path, so this is a latent risk rather than a known breakage.
+- **`..` in config paths — done.** The kit strips parent segments
+  (`filterOutParentAndEmpty`) and tests that traversal is blocked. Protato's
+  `normaliseConfigPath` now drops `.`, `..` and empty segments for every path
+  key, so a config path cannot point outside its own package for either the
+  served URL or the filesystem path.
+- **URL encoding of plugin paths — done.** `getAssetServerPath` encodes each
+  path segment, so a filename containing `#`, `?`, `%` or a space is served
+  rather than being read as part of the URL. The package name is left raw
+  because npm names are already URL-safe, which keeps existing `@scope/name`
+  URLs working.
 - **No configurable `basePlugins`.** The kit reads `basePlugins` from config;
   Protato hardcodes `['protato', 'govuk-frontend']`.
 - **No `pluginVersionSatisfies` global or legacy GOV.UK Frontend handling.**
@@ -352,11 +358,11 @@ Windows behaviour are not covered.
 ## What to fix first
 
 1. Add a real end-to-end install/update/uninstall test.
-2. URL-encode plugin asset paths, if a plugin ever ships a filename with `#`,
-   `?` or `%` in it.
+2. Fix the Windows npm runner, if Windows support matters.
 
-`..` filtering is now done, in `normaliseConfigPath`. The `/extension-assets`
-alias is deliberately not coming back (see above).
+`..` filtering (`normaliseConfigPath`) and URL encoding (`getAssetServerPath`)
+are now done. The `/extension-assets` alias is deliberately not coming back (see
+above).
 
 So: **Protato is better engineered and safer at the npm boundary, and now covers
 install, update and uninstall with CSRF protection and manual package-change
