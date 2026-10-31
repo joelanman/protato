@@ -1,9 +1,9 @@
 // manage prototype
 //
-// Everything under /manage-prototype is served by three apps with different
-// lifetimes, so different servers mount different pieces:
+// The /manage-prototype URL space is served by three pieces with different
+// lifetimes:
 //
-//   app               file                    mounted by
+//   export            file                    mounted by
 //   sessionApp        apps/session-app.js     lib/app.js, and the prototype
 //                                             server's error app (it needs the
 //                                             prototype session)
@@ -25,7 +25,8 @@ const templatePreviewPath = '/templates/view'
 
 const prototypeRoutes = [{ path: managePath(templatePreviewPath), handler: templatePreview }]
 
-// Paths the prototype server serves, which the dev server proxies to it
-const proxyPaths = [...pagePaths, templatePreviewPath].map(managePath)
+// Every manage path the prototype server serves: the session pages, plus the
+// prototype routes, which the dev server proxies to it.
+const proxyPaths = [...pagePaths.map(managePath), ...prototypeRoutes.map((route) => route.path)]
 
 export default { getSessionApp, prototypeRoutes, proxyPaths }
