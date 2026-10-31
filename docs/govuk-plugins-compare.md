@@ -286,18 +286,18 @@ ship a plugin config.
 
 These are adjacent to management but matter for running real prototypes:
 
-- **No `/extension-assets` alias.** The kit still serves the old URL
-  (`lib/plugins/plugins-routes.js`). Protato only serves `/plugin-assets`, so
-  older prototypes/plugins referencing `/extension-assets` break.
-- **No `..` filtering.** The kit strips parent segments
-  (`filterOutParentAndEmpty`) and has a test that traversal is blocked. Protato
-  normalises leading slashes and backslashes but keeps `..`.
-  `path.join(project, 'node_modules', pkg, '/../../secret')` escapes the package
-  directory. Plugins are trusted code, but this is still a regression against
-  the kit's explicit protection.
+- **No `/extension-assets` alias — deliberate.** The kit still serves the old
+  URL (`lib/plugins/plugins-routes.js`). Nothing in `govuk-plugins` links to it:
+  the only reference is hmrc-frontend's `$govuk-extensions-url-context: …
+  !default` in `src/_prototype-kit.scss`, and Protato sets that variable to
+  `/plugin-assets` in the generated `application.scss` (`lib/build.js`) before
+  importing plugin sass, so the default never applies. A plugin that ships
+  precompiled CSS with the old URL baked in would break, but none of the
+  published plugins do.
 - **No URL encoding of plugin paths.** The kit encodes each segment. Protato
-  builds raw URLs, so paths containing spaces or reserved characters won't be
-  served reliably.
+  builds raw URLs. Spaces survive because browsers encode them, but `#`, `?` and
+  `%` in a filename would silently 404. No plugin in `govuk-plugins` has such a
+  path, so this is a latent risk rather than a known breakage.
 - **No configurable `basePlugins`.** The kit reads `basePlugins` from config;
   Protato hardcodes `['protato', 'govuk-frontend']`.
 - **No `pluginVersionSatisfies` global or legacy GOV.UK Frontend handling.**
@@ -351,9 +351,12 @@ Windows behaviour are not covered.
 
 ## What to fix first
 
-1. **Add `..` filtering and URL encoding to plugin paths, plus the
-   `/extension-assets` alias.**
-2. Add a real end-to-end install/update/uninstall test.
+1. Add a real end-to-end install/update/uninstall test.
+2. URL-encode plugin asset paths, if a plugin ever ships a filename with `#`,
+   `?` or `%` in it.
+
+`..` filtering is now done, in `normaliseConfigPath`. The `/extension-assets`
+alias is deliberately not coming back (see above).
 
 So: **Protato is better engineered and safer at the npm boundary, and now covers
 install, update and uninstall with CSRF protection and manual package-change
