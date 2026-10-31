@@ -109,6 +109,13 @@ describe('Server', () => {
 			const html = await response.text()
 			expect(html).not.toContain('/manage-prototype/templates')
 			expect(html).not.toContain('/manage-prototype/plugins')
+
+			// the password page's assets must load without a password too
+			const stylesheet = await fetch(root + '/manage-prototype/public/stylesheets/manage-prototype.css')
+			expect(stylesheet.status).toBe(200)
+
+			const script = await fetch(root + '/manage-prototype/govuk-frontend/dist/govuk/govuk-frontend.min.js')
+			expect(script.status).toBe(200)
 		})
 	})
 
