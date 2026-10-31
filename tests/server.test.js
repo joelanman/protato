@@ -279,7 +279,7 @@ describe('Server', () => {
 			expect(response.status).toBe(404)
 			const html = await response.text()
 			expect(html).toContain('Page not found')
-			expect(html).toContain('There is no template at /templates/does-not-exist.html.')
+			expect(html).toContain('There is no page at')
 		})
 
 		it('compiles custom sass using pkg: URLs into its own CSS file', async () => {

@@ -6,7 +6,6 @@
 // knows to proxy it here.
 
 import plugins from '../../lib/plugins.js'
-import { templateNotFound } from '../template-not-found.js'
 
 const templatePreviewPath = '/manage-prototype/templates/view'
 
@@ -15,7 +14,7 @@ function templatePreview(request, response, next) {
 	const filePath = plugins.getTemplateFilePath(packageName, templatePath)
 
 	if (!filePath) {
-		return next(templateNotFound(packageName, templatePath))
+		return next()
 	}
 
 	response.render(`${packageName}${templatePath}`)

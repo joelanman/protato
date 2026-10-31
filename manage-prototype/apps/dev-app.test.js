@@ -217,7 +217,7 @@ describe('manage prototype dev app', () => {
 			expect(response.status).toBe(404)
 			const { view, model } = readRender(response)
 			expect(view).toBe('page-not-found.njk')
-			expect(model).toEqual(expect.objectContaining({ reason: 'There is no template at unknown.' }))
+			expect(model).toEqual({ path: '/templates/create' })
 		})
 	})
 
