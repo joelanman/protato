@@ -8,10 +8,10 @@ import express from 'express'
 import livereload from '../../lib/dev/livereload.js'
 import { csrf } from '../../lib/middleware/csrf.js'
 import { errorHandler, pageNotFound } from '../../lib/middleware/errors.js'
+import { configureManageApp } from '../configure-app.js'
 import { templatesPath } from '../paths.js'
 import pluginRoutes from '../routes/plugins.js'
 import templateRoutes from '../routes/templates.js'
-import { configureManageApp } from './configure-app.js'
 
 const getDevApp = () => {
 	const app = express()

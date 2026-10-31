@@ -16,4 +16,10 @@ describe('manage prototype', () => {
 			expect(path.startsWith(managePrototypePath)).toBe(true)
 		}
 	})
+
+	it('proxies every prototype route', () => {
+		for (const route of managePrototype.prototypeRoutes) {
+			expect(managePrototype.proxyPaths).toContain(route.path)
+		}
+	})
 })

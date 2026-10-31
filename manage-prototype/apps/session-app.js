@@ -10,8 +10,8 @@
 
 import express from 'express'
 import { getConfig } from '../../lib/config.js'
+import { configureManageApp } from '../configure-app.js'
 import { managePath, passwordPagePath } from '../paths.js'
-import { configureManageApp } from './configure-app.js'
 
 function getSafeReturnURL(returnURL = '/') {
 	if (

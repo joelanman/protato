@@ -2,9 +2,9 @@
 // static assets. Keeping them together stops the two apps drifting apart.
 
 import express from 'express'
-import { getPaths } from '../../lib/paths.js'
-import managePrototypeNunjucks from '../nunjucks.js'
-import { govukFrontendStaticPath, publicStaticPath } from '../paths.js'
+import { getPaths } from '../lib/paths.js'
+import managePrototypeNunjucks from './nunjucks.js'
+import { govukFrontendStaticPath, publicStaticPath } from './paths.js'
 
 function configureManageApp(app) {
 	const paths = getPaths()
