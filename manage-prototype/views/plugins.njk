@@ -103,6 +103,13 @@
         <p class="govuk-body">No plugins are installed.</p>
       {% endif %}
 
+      <form method="post" action="/manage-prototype/plugins/check-for-updates">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <button class="govuk-button govuk-button--secondary" data-module="govuk-button">
+          Check for updates
+        </button>
+      </form>
+
       <h2 class="govuk-heading-m">Available plugins</h2>
 
       {% if availablePlugins.length %}
@@ -117,6 +124,10 @@
               </dt>
               <dd class="govuk-summary-list__value">
                 <p class="govuk-body">Not installed</p>
+
+                {% if plugin.description %}
+                  <p class="govuk-body">{{ plugin.description }}</p>
+                {% endif %}
               </dd>
               <dd class="govuk-summary-list__actions">
                 <form method="post" action="/manage-prototype/plugins/install">

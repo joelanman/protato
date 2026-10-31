@@ -4,7 +4,7 @@ import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { installPlugin, uninstallPlugin, updatePlugin } from '../lib/manage-plugins/change.js'
-import { checkForUpdates } from '../lib/manage-plugins/list.js'
+import * as registry from '../lib/manage-plugins/registry.js'
 import { getDevApp } from './dev-app.js'
 
 const { packageName, template, templatesByPlugin, templateFilePath } = vi.hoisted(() => {
@@ -69,10 +69,9 @@ vi.mock('../lib/plugins.js', async (importOriginal) => {
 	}
 })
 
-vi.mock('../lib/manage-plugins/list.js', () => ({
-	checkForUpdates: vi.fn(async (plugins) => plugins),
-	listInstalledPlugins: vi.fn(() => []),
-	listAvailablePlugins: vi.fn(() => [])
+vi.mock('../lib/manage-plugins/registry.js', () => ({
+	getPluginLists: vi.fn(() => ({ installedPlugins: [], availablePlugins: [] })),
+	refreshPluginData: vi.fn()
 }))
 
 vi.mock('../lib/manage-plugins/change.js', () => ({
@@ -371,16 +370,19 @@ describe('manage prototype dev app', () => {
 		})
 
 		it('reports how many plugin updates are available', async () => {
-			vi.mocked(checkForUpdates).mockResolvedValueOnce([
-				{
-					packageName: 'asset-plugin',
-					name: 'Asset Plugin',
-					installed: true,
-					version: '1.0.0',
-					latestVersion: '2.0.0',
-					updateAvailable: true
-				}
-			])
+			vi.mocked(registry.getPluginLists).mockReturnValueOnce({
+				installedPlugins: [
+					{
+						packageName: 'asset-plugin',
+						name: 'Asset Plugin',
+						installed: true,
+						version: '1.0.0',
+						latestVersion: '2.0.0',
+						updateAvailable: true
+					}
+				],
+				availablePlugins: []
+			})
 
 			const response = await request(app).get('/manage-prototype/plugins')
 
@@ -448,6 +450,25 @@ describe('manage prototype dev app', () => {
 					installedPackages: ['needed-plugin']
 				})
 			)
+		})
+
+		it('checks for updates when the token is valid', async () => {
+			const response = await postPlugin('check-for-updates', {})
+
+			expect(registry.refreshPluginData).toHaveBeenCalledOnce()
+			expect(response.status).toBe(302)
+			expect(response.headers.location).toBe('/manage-prototype/plugins')
+		})
+
+		it('rejects a check without a token', async () => {
+			const response = await request(app)
+				.post('/manage-prototype/plugins/check-for-updates')
+				.set('Cookie', cookie)
+				.type('form')
+				.send({})
+
+			expect(response.status).toBe(403)
+			expect(registry.refreshPluginData).not.toHaveBeenCalled()
 		})
 
 		it('rejects a change without a token', async () => {
