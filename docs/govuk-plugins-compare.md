@@ -343,26 +343,29 @@ its own injection trade-off). If Windows support matters, this needs a
 - Only direct dependents are removed on uninstall. The kit is the same, so this
   is parity, not a regression.
 
-### 8. Test coverage
+### 8. Test coverage — mostly done
 
 Our unit tests around the plugin internals are good — probably better than the
-kit's for pure functions. But we have **no end-to-end test that really
-installs/updates/uninstalls a plugin via npm, rebuilds and restarts**. The kit
-has an extensive Cypress plugin suite covering install, update, uninstall,
-reinstall, dependency installation, CSRF, mismatches and removing GOV.UK
-Frontend. Our CSRF protection is covered by unit tests and an end-to-end test of
-creating a page from a template, but there is still nothing that installs or
-updates a plugin through the UI, so broken route wiring, restart failures and
-Windows behaviour are not covered.
+kit's for pure functions — and there is now an end-to-end test that installs,
+updates and uninstalls a plugin through the UI with real npm, a real rebuild and
+a real restart (`tests/plugin-management.test.js`). It runs against a local
+registry (`tests/helpers/local-registry.js`) built from `npm pack`ed fixture
+plugins, so it needs no network and no new dependencies, and
+`lib/manage-plugins/registry.js` now reads `npm_config_registry` so update
+checks follow the same registry npm uses.
+
+What that still leaves uncovered, versus the kit's Cypress suite: installing
+plugin dependencies from a tarball preview, CSRF failure handling on the plugin
+POSTs (unit tested), and Windows. Windows is the gap that matters, because
+`npm.cmd` is spawned without a shell there.
 
 ## What to fix first
 
-1. Add a real end-to-end install/update/uninstall test.
-2. Fix the Windows npm runner, if Windows support matters.
+1. Fix the Windows npm runner, if Windows support matters.
 
-`..` filtering (`normaliseConfigPath`) and URL encoding (`getAssetServerPath`)
-are now done. The `/extension-assets` alias is deliberately not coming back (see
-above).
+Install/update/uninstall is now covered end to end, and `..` filtering
+(`normaliseConfigPath`) and URL encoding (`getAssetServerPath`) are done. The
+`/extension-assets` alias is deliberately not coming back (see above).
 
 So: **Protato is better engineered and safer at the npm boundary, and now covers
 install, update and uninstall with CSRF protection and manual package-change
