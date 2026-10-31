@@ -41,4 +41,3 @@ function render(view, context) {
 }
 
 export default { configure, render }
-export { configure, render }
