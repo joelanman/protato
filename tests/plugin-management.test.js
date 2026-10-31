@@ -1,18 +1,16 @@
-import { execFile, spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
-import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { createLocalRegistry, createPluginTarball } from './helpers/local-registry.js'
+import { runNpm } from './helpers/npm.js'
 import { createPluginProject } from './helpers/plugin-project.js'
 
 // Installs, updates and uninstalls a plugin through the manage UI, with real
 // npm, a real rebuild and a real restart. The plugin comes from a local
 // registry, so the test does not use the network.
-
-const execFileAsync = promisify(execFile)
 
 // Every wait here is 30 times what the machine needs, so a slow npm or sass run
 // still passes while a hung server fails in reasonable time.
@@ -193,7 +191,7 @@ describe('plugin management end to end', () => {
 		// the older version so there is genuinely something to update
 		// async on purpose: the registry runs in this process, so a synchronous
 		// child process would deadlock waiting for its own packument
-		await execFileAsync('npm', ['install', `${updatePackageName}@1.0.0`, '--save-exact', '--no-audit', '--no-fund'], {
+		await runNpm(['install', `${updatePackageName}@1.0.0`, '--save-exact', '--no-audit', '--no-fund'], {
 			cwd: project.dir,
 			env: { ...process.env, npm_config_registry: registry.url }
 		})
@@ -256,6 +254,18 @@ describe('plugin management end to end', () => {
 	)
 
 	it(
+		'reports why npm could not install a plugin',
+		async () => {
+			const result = await postChange('/install', 'e2e-plugin-missing')
+
+			expect(result).toContain('The plugin could not be installed.')
+			expect(result).toContain('npm output')
+			expect(result).toContain('e2e-plugin-missing')
+		},
+		TIMEOUT_MS
+	)
+
+	it(
 		'offers the newer version and updates the plugin',
 		async () => {
 			const pluginsPage = await readForm('/manage-prototype/plugins')
@@ -288,7 +298,7 @@ describe('plugin management end to end', () => {
 })
 
 async function readNpmVersion() {
-	const { stdout } = await execFileAsync('npm', ['--version'])
+	const { stdout } = await runNpm(['--version'])
 	return stdout.trim()
 }
 

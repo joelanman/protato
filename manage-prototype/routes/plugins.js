@@ -47,6 +47,7 @@ router.post('/install', async (request, response) => {
 		pageName: 'Plugins',
 		outcome: getOutcome(result, 'installed'),
 		message: result.error ?? result.noChange,
+		npmOutput: result.npmOutput,
 		installedPackages: result.packages
 	})
 })
@@ -58,6 +59,7 @@ router.post('/uninstall', async (request, response) => {
 		pageName: 'Plugins',
 		outcome: getOutcome(result, 'uninstalled'),
 		message: result.error ?? result.noChange,
+		npmOutput: result.npmOutput,
 		removedPackages: result.packages
 	})
 })
@@ -69,6 +71,7 @@ router.post('/update', async (request, response) => {
 		pageName: 'Plugins',
 		outcome: getOutcome(result, 'updated'),
 		message: result.error ?? result.noChange,
+		npmOutput: result.npmOutput,
 		updatedPackage: result.updatedPackage,
 		installedPackages: result.installedPackages
 	})

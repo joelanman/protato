@@ -1,9 +1,10 @@
-import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
+
+import { runNpmSync } from './npm.js'
 
 // End to end tests install plugins with real npm, so they need a registry. This
 // is a local one: it serves packuments and tarballs for test plugins, which
@@ -38,7 +39,7 @@ function createPluginTarball({ packageName, version, description, stylesheet }) 
 
 	writeFile(sourceDir, 'css/plugin.css', stylesheet)
 
-	execFileSync('npm', ['pack', '--pack-destination', packDir], { cwd: sourceDir, stdio: 'pipe' })
+	runNpmSync(['pack', '--pack-destination', packDir], { cwd: sourceDir })
 
 	const tarballName = fs.readdirSync(packDir).find((file) => file.endsWith('.tgz'))
 
