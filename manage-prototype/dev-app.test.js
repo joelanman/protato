@@ -71,7 +71,7 @@ vi.mock('../lib/plugins.js', async (importOriginal) => {
 
 vi.mock('../lib/manage-plugins/registry.js', () => ({
 	getPluginLists: vi.fn(() => ({ installedPlugins: [], availablePlugins: [] })),
-	refreshPluginData: vi.fn()
+	fetchAllPluginData: vi.fn()
 }))
 
 vi.mock('../lib/manage-plugins/change.js', () => ({
@@ -455,7 +455,7 @@ describe('manage prototype dev app', () => {
 		it('checks for updates when the token is valid', async () => {
 			const response = await postPlugin('check-for-updates', {})
 
-			expect(registry.refreshPluginData).toHaveBeenCalledOnce()
+			expect(registry.fetchAllPluginData).toHaveBeenCalledOnce()
 			expect(response.status).toBe(302)
 			expect(response.headers.location).toBe('/manage-prototype/plugins')
 		})
@@ -468,7 +468,7 @@ describe('manage prototype dev app', () => {
 				.send({})
 
 			expect(response.status).toBe(403)
-			expect(registry.refreshPluginData).not.toHaveBeenCalled()
+			expect(registry.fetchAllPluginData).not.toHaveBeenCalled()
 		})
 
 		it('rejects a change without a token', async () => {

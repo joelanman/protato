@@ -21,7 +21,7 @@ router.get('/', (request, response) => {
 // list, which reads the refreshed cache. A POST because it changes what the
 // page will show and should not be repeated by a reload or a link prefetch.
 router.post('/check-for-updates', async (request, response) => {
-	await registry.refreshPluginData()
+	await registry.fetchAllPluginData()
 
 	response.redirect(request.baseUrl)
 })
