@@ -10,9 +10,8 @@
 
 import express from 'express'
 import { getConfig } from '../../lib/config.js'
-import { getPaths } from '../../lib/paths.js'
-import managePrototypeNunjucks from '../nunjucks.js'
-import { clearDataPagePath, govukFrontendPath, managePath, passwordPagePath, publicAssetsPath } from '../paths.js'
+import { managePath, passwordPagePath } from '../paths.js'
+import { configureManageApp } from './configure-app.js'
 
 function getSafeReturnURL(returnURL = '/') {
 	if (
@@ -30,7 +29,7 @@ function getSafeReturnURL(returnURL = '/') {
 // pagePaths are both read from this list.
 const pages = [
 	{
-		path: clearDataPagePath,
+		path: '/clear-data',
 		get: (request, response) => {
 			response.render('clear-data')
 		},
@@ -67,13 +66,8 @@ const pagePaths = pages.map((page) => page.path)
 
 const getSessionApp = () => {
 	const app = express()
-	const paths = getPaths()
 
-	managePrototypeNunjucks.configure(app)
-
-	// static assets
-	app.use(publicAssetsPath, express.static(paths.managePrototype.public))
-	app.use(govukFrontendPath, express.static(paths.managePrototype.govukFrontend))
+	configureManageApp(app)
 
 	for (const page of pages) {
 		app.get(page.path, page.get)

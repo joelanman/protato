@@ -1,39 +1,31 @@
 // Paths in the manage prototype URL space, relative to /manage-prototype.
 //
-// The manage apps mount these. Code outside an app (auth, CSRF, redirects, the
-// dev server) builds absolute URLs with managePath, so there is one definition
-// instead of literals kept in sync by hand.
+// Only the paths used by more than one module live here. Code outside an app
+// (auth, CSRF, redirects, the dev server) builds absolute URLs with managePath,
+// so the password page and the asset mounts cannot drift.
 
 const managePrototypePath = '/manage-prototype'
 
-// Paths served by the manage apps and the prototype app
-const clearDataPagePath = '/clear-data'
+// Shared paths inside the manage prototype URL space
 const passwordPagePath = '/password'
 const templatesPath = '/templates'
-const templatePreviewPath = '/templates/view'
-const pluginsPath = '/plugins'
-const livereloadPath = '/livereload'
-const publicAssetsPath = '/public'
-const govukFrontendPath = '/govuk-frontend'
+const publicStaticPath = '/public'
+const govukFrontendStaticPath = '/govuk-frontend'
 
 const managePath = (path) => `${managePrototypePath}${path}`
 
-// Requests the prototype server serves without the password: the password page
-// itself, and the assets it needs to render. Used by checkAuth.
-const publicPaths = [managePath(passwordPagePath)]
-const publicPathPrefixes = [managePath(publicAssetsPath), managePath(govukFrontendPath)]
+// Requests the prototype server serves before anyone signs in: the password
+// page itself, and the assets it needs to render. Used by checkAuth.
+const unauthenticatedPaths = [managePath(passwordPagePath)]
+const unauthenticatedPathPrefixes = [managePath(publicStaticPath), managePath(govukFrontendStaticPath)]
 
 export {
-	clearDataPagePath,
-	govukFrontendPath,
-	livereloadPath,
+	govukFrontendStaticPath,
 	managePath,
 	managePrototypePath,
 	passwordPagePath,
-	pluginsPath,
-	publicAssetsPath,
-	publicPathPrefixes,
-	publicPaths,
-	templatePreviewPath,
-	templatesPath
+	publicStaticPath,
+	templatesPath,
+	unauthenticatedPathPrefixes,
+	unauthenticatedPaths
 }
