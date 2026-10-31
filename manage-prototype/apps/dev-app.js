@@ -42,12 +42,11 @@ const getDevApp = () => {
 	// must not fall through to the proxy with its body already parsed.
 	app.use(pageNotFound)
 
-	// errors raised by the manage UI (such as a template that doesn't exist)
-	// render our own not found and server error pages.
+	// errors raised by the manage UI render our own not found and server error
+	// pages.
 	app.use(errorHandler)
 
 	return app
 }
 
 export { getDevApp }
-export default { getDevApp }
