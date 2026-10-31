@@ -3,47 +3,57 @@
 // Sub-app mounted by the dev server at /manage-prototype.
 
 import express from 'express'
-import livereload from '../lib/livereload.js'
-import { errorHandler } from '../lib/middleware/errors.js'
+import livereload from '../lib/dev/livereload.js'
+import { csrf } from '../lib/middleware/csrf.js'
+import { errorHandler, pageNotFound } from '../lib/middleware/errors.js'
 import { getPaths } from '../lib/paths.js'
 import managePrototypeNunjucks from './nunjucks.js'
+import pluginRoutes from './routes/plugins.js'
 import templateRoutes from './routes/templates.js'
 
-const getManagePrototypeDevApp = () => {
+const getDevApp = () => {
 	const app = express()
 	const paths = getPaths()
 
 	managePrototypeNunjucks.configure(app)
 
+	// Requests for pages served by the prototype server are proxied before they
+	// reach this app (lib/dev/server.js), so everything here is ours to parse.
 	app.use(express.urlencoded({ extended: true }))
 
 	// static assets
 	app.use('/public', express.static(paths.managePrototype.public))
 	app.use('/govuk-frontend', express.static(paths.managePrototype.govukFrontend))
 
+	// live reload is a long lived event stream and needs no token
+	app.get('/livereload', livereload.getRoute())
+
+	// Every route below is a manage route: pages render the token and posts
+	// check it. Everything is protected by default rather than per route.
+	app.use(csrf)
+
 	// dev manage UI
 	app.get('/', (request, response) => {
 		response.render('home')
 	})
 
-	// /templates/view is mounted by the prototype app (lib/app.js) because
-	// previews need prototype views and locals. Unmatched requests fall through
-	// to the prototype server via the dev server's proxy.
 	app.use('/templates', templateRoutes)
 
-	app.get('/plugins', (request, response) => {
-		response.render('plugins', { pageName: 'Plugins' })
-	})
+	// plugin management changes package.json, so it rebuilds and restarts the
+	// prototype after a change.
+	app.use('/plugins', pluginRoutes)
 
-	// live reload
-	app.get('/livereload', livereload.getRoute())
+	// The manage pages the prototype server serves are proxied before they reach
+	// this app (PROXY_MANAGE_PATHS in lib/dev/server.js), so an unmatched path is
+	// a 404. It must not fall through to the proxy with its body already parsed.
+	app.use(pageNotFound)
 
 	// errors raised by the manage UI (such as a template that doesn't exist)
-	// render our own not found and server error pages. Unmatched requests are
-	// left alone so they still fall through to the prototype server's proxy.
+	// render our own not found and server error pages.
 	app.use(errorHandler)
 
 	return app
 }
 
-export { getManagePrototypeDevApp }
+export { getDevApp }
+export default { getDevApp }
