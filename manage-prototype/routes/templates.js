@@ -3,8 +3,7 @@ import path from 'node:path'
 import express from 'express'
 import { getPaths } from '../../lib/paths.js'
 import plugins from '../../lib/plugins.js'
-import { managePath, templatesPath } from '../paths.js'
-import { templateNotFound } from './template-not-found.js'
+import { templateNotFound } from '../template-not-found.js'
 
 const router = express.Router()
 
@@ -69,7 +68,7 @@ router.post('/create', (request, response, next) => {
 			newPagePath,
 			error: pathError
 		})
-		return response.redirect(`${managePath(templatesPath)}/create?${query.toString()}`)
+		return response.redirect(`/manage-prototype/templates/create?${query.toString()}`)
 	}
 
 	// the page is linked to by its absolute path, so always start with a slash
@@ -87,13 +86,13 @@ router.post('/create', (request, response, next) => {
 			newPagePath,
 			error: 'Path already exists'
 		})
-		return response.redirect(`${managePath(templatesPath)}/create?${query.toString()}`)
+		return response.redirect(`/manage-prototype/templates/create?${query.toString()}`)
 	}
 
 	fs.mkdirSync(path.dirname(filePath), { recursive: true })
 	fs.copyFileSync(templateFilePath, filePath)
 
-	response.redirect(`${managePath(templatesPath)}/created?newPagePath=${encodeURIComponent(newPagePath)}`)
+	response.redirect(`/manage-prototype/templates/created?newPagePath=${encodeURIComponent(newPagePath)}`)
 })
 
 // template created confirmation

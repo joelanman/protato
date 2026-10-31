@@ -1,15 +1,14 @@
 // manage prototype - dev app
 //
-// The manage UI used while developing: home, templates and plugins, mounted at
-// /manage-prototype. Served by the dev server (lib/dev/server.js), which is a
-// separate process from the prototype so this UI survives prototype restarts.
+// The manage UI used while developing: home, templates and plugins. Served by
+// the dev server, which is a separate process so this UI survives prototype
+// restarts.
 
 import express from 'express'
 import livereload from '../../lib/dev/livereload.js'
 import { csrf } from '../../lib/middleware/csrf.js'
 import { errorHandler, pageNotFound } from '../../lib/middleware/errors.js'
 import { configureManageApp } from '../configure-app.js'
-import { templatesPath } from '../paths.js'
 import pluginRoutes from '../routes/plugins.js'
 import templateRoutes from '../routes/templates.js'
 
@@ -34,7 +33,7 @@ const getDevApp = () => {
 		response.render('home')
 	})
 
-	app.use(templatesPath, templateRoutes)
+	app.use('/templates', templateRoutes)
 
 	// plugin management changes package.json, so it rebuilds and restarts the
 	// prototype after a change.

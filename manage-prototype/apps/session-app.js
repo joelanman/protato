@@ -1,23 +1,19 @@
 // manage prototype - session app
 //
-// Pages that need the prototype session (password, clear data) plus the manage
-// static assets. Mounted at /manage-prototype by the prototype app (lib/app.js)
-// and by its error app, because both exist in production.
-//
-// In development the dev server proxies this app's pages to the prototype
-// server before its own manage app sees them, because the session lives there.
-// It reads the paths from pagePaths, so adding a page here is enough.
+// Pages that need the prototype session (password, clear data) and the manage
+// static assets. Mounted by the prototype app and its error app. In development
+// the dev server proxies this app's pages to the prototype server (see
+// pagePaths) before its own manage app sees them, because the session lives here.
 
 import express from 'express'
 import { getConfig } from '../../lib/config.js'
 import { configureManageApp } from '../configure-app.js'
-import { managePath, passwordPagePath } from '../paths.js'
 
 function getSafeReturnURL(returnURL = '/') {
 	if (
 		typeof returnURL === 'string' &&
 		returnURL.startsWith('/') &&
-		!returnURL.startsWith(managePath(passwordPagePath)) &&
+		!returnURL.startsWith('/manage-prototype/password') &&
 		!returnURL.startsWith('//')
 	) {
 		return returnURL
@@ -39,7 +35,7 @@ const pages = [
 		}
 	},
 	{
-		path: passwordPagePath,
+		path: '/password',
 		get: (request, response) => {
 			response.render('password', {
 				error: request.query.error,
@@ -54,7 +50,7 @@ const pages = [
 				response.redirect(getSafeReturnURL(request.body.returnURL))
 			} else {
 				const returnURL = encodeURIComponent(request.body.returnURL)
-				response.redirect(managePath(passwordPagePath) + '?error=wrong-password&returnURL=' + returnURL)
+				response.redirect('/manage-prototype/password?error=wrong-password&returnURL=' + returnURL)
 			}
 		}
 	}

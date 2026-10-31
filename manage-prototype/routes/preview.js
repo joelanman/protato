@@ -6,7 +6,7 @@
 // the dev server knows to proxy it.
 
 import plugins from '../../lib/plugins.js'
-import { templateNotFound } from './template-not-found.js'
+import { templateNotFound } from '../template-not-found.js'
 
 function templatePreview(request, response, next) {
 	const { packageName, templatePath } = request.query
