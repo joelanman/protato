@@ -2,7 +2,7 @@ import express from 'express'
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installPlugin, uninstallPlugin, updatePlugin } from '../../lib/manage-plugins/change.js'
-import { checkForUpdates, listAvailablePlugins, listInstalledPlugins } from '../../lib/manage-plugins/list.js'
+import * as registry from '../../lib/manage-plugins/registry.js'
 import pluginRoutes from './plugins.js'
 
 vi.mock('../../lib/manage-plugins/change.js', () => ({
@@ -11,10 +11,9 @@ vi.mock('../../lib/manage-plugins/change.js', () => ({
 	updatePlugin: vi.fn()
 }))
 
-vi.mock('../../lib/manage-plugins/list.js', () => ({
-	checkForUpdates: vi.fn(),
-	listAvailablePlugins: vi.fn(),
-	listInstalledPlugins: vi.fn()
+vi.mock('../../lib/manage-plugins/registry.js', () => ({
+	getPluginLists: vi.fn(),
+	refreshPluginData: vi.fn()
 }))
 
 const installedPlugins = [
@@ -55,9 +54,7 @@ describe('plugin routes', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 
-		listInstalledPlugins.mockReturnValue(installedPlugins)
-		checkForUpdates.mockImplementation(async (plugins) => plugins)
-		listAvailablePlugins.mockReturnValue(availablePlugins)
+		registry.getPluginLists.mockReturnValue({ installedPlugins, availablePlugins })
 
 		app = express()
 		app.use(express.urlencoded({ extended: true }))
@@ -74,7 +71,7 @@ describe('plugin routes', () => {
 
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugins')
-			expect(checkForUpdates).toHaveBeenCalledWith(installedPlugins)
+			expect(registry.getPluginLists).toHaveBeenCalledOnce()
 			expect(model).toEqual({
 				pageName: 'Plugins',
 				installedPlugins,
@@ -84,15 +81,34 @@ describe('plugin routes', () => {
 		})
 
 		it('counts the plugins that have updates available', async () => {
-			checkForUpdates.mockResolvedValue([
-				{ ...installedPlugins[0], updateAvailable: true, latestVersion: '2.0.0' },
-				{ ...installedPlugins[0], packageName: 'other-plugin', updateAvailable: false }
-			])
+			registry.getPluginLists.mockReturnValue({
+				installedPlugins: [
+					{ ...installedPlugins[0], updateAvailable: true, latestVersion: '2.0.0' },
+					{ ...installedPlugins[0], packageName: 'other-plugin', updateAvailable: false }
+				],
+				availablePlugins: []
+			})
 
 			const response = await request(app).get('/manage-prototype/plugins')
 
 			const { model } = readRender(response)
 			expect(model).toEqual(expect.objectContaining({ availableUpdatesCount: 1 }))
+		})
+
+		it('does not check for updates on a page load', async () => {
+			await request(app).get('/manage-prototype/plugins')
+
+			expect(registry.refreshPluginData).not.toHaveBeenCalled()
+		})
+	})
+
+	describe('POST /check-for-updates', () => {
+		it('checks again, then returns to the plugins page', async () => {
+			const response = await request(app).post('/manage-prototype/plugins/check-for-updates')
+
+			expect(registry.refreshPluginData).toHaveBeenCalledOnce()
+			expect(response.status).toBe(302)
+			expect(response.headers.location).toBe('/manage-prototype/plugins')
 		})
 	})
 

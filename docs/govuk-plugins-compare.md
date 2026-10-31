@@ -90,6 +90,9 @@ in the plugin suite because they use the same fixture plugins.
 
 ### Protato files counted
 
+Counts are from the third pass and have drifted since, so read them as a
+snapshot of the shape of the change rather than current file sizes.
+
 | File or region | Raw lines | Code lines |
 | --- | ---: | ---: |
 | **Direct management** | | |
@@ -173,7 +176,7 @@ missing end-to-end coverage of a real npm install.
 | Running npm | `spawn` with an argument list, no shell, package name validated first (`lib/manage-plugins/npm.js`) | Builds a command string and runs it through `exec`, with package/version coming from the query/body |
 | Protected plugins | Enforced in `plan.js`/server code (`protato` cannot be uninstalled or updated; `govuk-frontend` cannot be uninstalled, though it can be updated) | "Required" is mainly a UI restriction; the server only refuses uninstalling the kit itself |
 | Concurrent changes | One-at-a-time lock in `change.js` | No equivalent lock |
-| Listing & registry lookups | `listInstalledPlugins` is synchronous and local-only; `checkForUpdates` only fetches `/<pkg>/latest` for installed registry plugins (1-minute cache, 5s timeout, failures not cached, no tarball downloads) | Fetches the full registry document for every installed and available plugin, plus streams/untars `.tgz` tarballs into `tmp/caches` |
+| Listing & registry lookups | `listInstalledPlugins` is synchronous and local-only; `registry.startFetchingPluginData` refreshes registry data in the background every 15 minutes (1.5s timeout, last known data kept on failure, no tarball downloads), so rendering a page never touches the network (see "How plugin update checking works, in detail") | Fetches the full registry document for every installed and available plugin, plus streams/untars `.tgz` tarballs into `tmp/caches` |
 | Production exposure | Plugin routes aren't mounted at all | Management routes are mounted but gated with a "not available" page |
 | Structure | `list` / `plan` / `npm` / `change` / `registry` / routes, easy to test | One very large handlers file plus registry, packages, tarball extractor, validator, routes and browser JS |
 | Project view precedence | Project views explicitly first | Plugin views are before project views, so a plugin can override a project view |
@@ -250,30 +253,185 @@ Plan and reasoning: `docs/plugins-watcher-plan.md`.
 Protato now matches the kit's core update workflow:
 
 - `lib/manage-plugins/registry.js` checks
-  `https://registry.npmjs.org/<packageName>/latest` with a 5-second timeout and
-  a 1-minute in-memory cache (`fetchLatestVersion`). Unlike the kit, it only
-  queries the `/latest` endpoint for installed registry plugins, does not cache
-  failures, and gracefully falls back offline.
-- `checkForUpdates` in `lib/manage-plugins/list.js` marks `updateAvailable` and
-  `latestVersion` on installed plugins, skipping uninstalled plugins, `protato`
-  itself, and any non-registry dependency (`file:`, `github:`, `git+`, `link:`,
-  `workspace:`, etc. via `semver.validRange`). `govuk-frontend` remains
-  protected against uninstalling, but can be updated when a newer version is
-  available.
-- `manage-prototype/views/plugins.njk` displays the update count tag
+  `https://registry.npmjs.org/<packageName>/latest` with a 1.5-second timeout and
+  keeps the last known version and description of each package in memory
+  (`fetchPluginData`, `getPluginData`). Unlike the kit, it reads both from the
+  `/latest` endpoint instead of downloading tarballs, keeps the last known data
+  rather than blanking it on a failed request, and gracefully falls back
+  offline. `withPluginData` returns the plugins with `updateAvailable`,
+  `latestVersion` and a fallback `description` filled in from that cache, so no
+  page render waits for the network. `refreshPluginData` does one awaited round,
+  and `registry.startFetchingPluginData()` runs it on start and every 15
+  minutes; the "Check for updates" button on the page runs it on demand. Both skip `protato` itself and any installed non-registry dependency
+  (`file:`, `github:`, `git+`, `link:`, `workspace:`, etc. via
+  `semver.validRange`); `isUpdatablePlugin` is the same rule `planUpdate` uses.
+  Uninstalled plugins are refreshed for their descriptions, but never offered an
+  update.
+  `govuk-frontend` remains protected against uninstalling, but can be updated
+  when a newer version is available.
+- `manage-prototype/views/plugins.njk` displays each plugin's description, the
+  update count tag
   (`#plugins-updates-available-message`), `(version X.Y.Z available)` alongside
   the installed version, and an **Update** button (`POST /manage-prototype/plugins/update`).
 - `planUpdate` and `updatePlugin` validate the request on the server, run
   `npm install <packageName>@<version> --save-exact` under the change lock, read
   the updated package's `govuk-prototype-kit.config.json` from `node_modules` to
   install any newly required `pluginDependencies` (`installMissingDependencies`),
-  clear the registry and plugin caches, rebuild, and restart the prototype. Reading
+  rebuild, and restart the prototype. Reading
   `pluginDependencies` from `node_modules` after updating avoids the kit's
   `lib/utils/requestHttps.js` tarball download and `tar-stream` extraction.
 
 Remaining minor differences from the kit: Protato updates directly on POST
 rather than showing a pre-update confirmation page, and does not have a
 `showPrereleases` config option.
+
+### 3a. How plugin data syncing and update checking work, in detail
+
+Both tools answer the same question — "is the installed version behind the
+latest version in the registry?" — but they ask it at different times, against
+different endpoints, and treat failure differently.
+
+| | Kit | Protato |
+| --- | --- | --- |
+| Registry request | Full packument: `GET /<packageName>` | `GET /<packageName>/latest` |
+| Registry URL | Hardcoded `registry.npmjs.org`, package name URL-encoded | `npm_config_registry` if set, otherwise `registry.npmjs.org` |
+| Timeout | None | 1.5 seconds (`AbortSignal.timeout`) |
+| When it runs | On a page render, when the 1-minute cache has expired | Dev server start, every 15 minutes, and on the "Check for updates" button |
+| Does a page render wait for it? | Yes, on every render after the cache expires | No, the page reads a local cache |
+| Packages checked | Every catalogue `available` plugin plus every project dependency | Every installed registry dependency, plus uninstalled plugins for their descriptions |
+| Failure behaviour | `latestVersion` is replaced with `undefined` for that refresh | Last known version is kept |
+| Duplicate requests | None | One in-flight request per package, shared |
+| Pre-releases | Optional via `showPrereleases` | The `latest` dist-tag only |
+| Non-registry dependencies | Filters `file:` and `github:` only | Filters anything that is not a semver range (`file:`, `github:`, `git+`, `link:`, `workspace:`) |
+| Version pinning | `?version=` validated against the registry's version list | Not supported |
+| Update action | GET confirmation page, then POST; browser polls status | POST directly; request awaits rebuild and restart |
+| Extra registry work | Downloads `.tgz` tarballs to read plugin configs | Reads the description from the same `/latest` response |
+
+#### Kit: refresh while rendering the page
+
+`getPluginsHandler` calls `prepareForPluginPage`, which calls `getAllPackages`
+and `getInstalledPackages`. Both go through `getOrFetchPackagesCache`
+(`lib/plugins/packages.js:24-36`). If the cache is more than 60 seconds old,
+`updatePackagesInfo` awaits `refreshPackageInfo` for every catalogue `available`
+plugin and every key in the project's `dependencies`, then renders. There is no
+background timer and no explicit refresh button: loading the page is the check.
+So the first plugins page render after a minute can make a dozen or more
+registry requests and waits for all of them before it sends any HTML.
+
+`requestRegistryInfo` fetches the full packument from a hardcoded
+`https://registry.npmjs.org/<encoded name>` (`packages.js:42-56`). It needs the
+whole document because it reads `dist-tags`, `versions` and `time`, not just the
+latest version. `requestHttpsJson` (`lib/utils/requestHttps.js`) sets no
+timeout, so a registry that accepts the connection and then goes quiet holds the
+management page open. Errors are logged only in verbose mode and become
+`undefined`.
+
+The latest version is `dist-tags.latest`. With `showPrereleases` enabled it is
+the dist-tag with the newest `time` entry (`packages.js:80-88`), not necessarily
+the highest semver. All keys of `versions` are kept so a `?version=` on an
+install or update URL can be checked against them (`isValidVersion`,
+`lib/manage-prototype-handlers.js:51-59`). The badge is
+`updateAvailable = installed && !installedLocally && !installedFromGithub &&
+hasNewVersion(installedVersion, latestVersion)` (`packages.js:126`).
+
+Because `packagesCache[packageName]` is replaced on every refresh, a failed
+request writes an entry with no `latestVersion`. A transient registry failure
+therefore removes the update indicator for at least a minute, rather than
+keeping the last known answer.
+
+`hasNewVersion` (`lib/utils/index.js:291-301`) treats a missing latest version
+as "no update" and catches any error from `semver.gt`, so odd input is tolerated
+rather than validated.
+
+#### Protato: keep the cache warm in the background
+
+`lib/manage-plugins/registry.js` fetches
+`<registry>/<packageName>/latest`, reading the registry from
+`npm_config_registry` so a project using a mirror checks the same registry npm
+uses. Each request is aborted after 1.5 seconds. Results go into an in-memory
+`Map` that never expires: an old version is better than an empty page.
+`pendingRequests` shares one in-flight request per package, so a background
+refresh and an update planned at the same time do not fetch twice.
+
+`registry.startFetchingPluginData()` is called by `lib/start.js` in development
+only. It fetches immediately and then every 15 minutes, with `unref()` so it
+cannot hold a dev server open. The interval is long because the page never waits
+for it. `getPluginLists` only reads the `Map`; `refreshPluginData` awaits one
+round and is used by the background fetch and by the "Check for updates" button
+(`POST /manage-prototype/plugins/check-for-updates`).
+
+Installed plugins are checked when their declared version is a semver range
+(`isRegistryDependency`, using `semver.validRange`). Uninstalled plugins are
+checked for a description but are never offered an update. `protato` itself is
+skipped because it runs the update. `hasNewVersion` requires both versions to be
+valid semver before calling `semver.gt`, so a missing or odd version can never
+produce a badge.
+
+#### What the two comparisons actually differ on
+
+The semver comparison is the same in both tools. The meaningful differences are
+around it:
+
+- **Cost and blocking.** The kit checks everything on a page render and waits
+  for the network; Protato checks installed plugins only, in the background, so
+  a plugins page render is local. Protato's requests also have a deadline and
+  are de-duplicated.
+- **Failure modes.** The kit blanks a version when a refresh fails; Protato keeps
+  the last known one and shows a possibly stale badge until the next check.
+  Protato's badge can therefore be up to 15 minutes old (or older if the registry
+  stays unreachable), while the kit's is at most a minute old when the registry
+  is reachable.
+- **Non-registry dependencies.** The kit checks only the `file:` and `github:`
+  prefixes on the raw dependency string. A `link:`, `workspace:` or `git+https:`
+  dependency can still be compared with the registry and offered as updateable,
+  even though updating it would replace the local link or git checkout. Protato's
+  `semver.validRange` test rejects all of these, and the same rule is used by
+  `planUpdate`, so the page and the server agree.
+- **Self-update.** The kit's own package is an installed dependency with a plugin
+  config, so it can get an update badge like any other plugin; the server only
+  refuses to uninstall it. Protato never offers an update for `protato`.
+- **Prereleases and version choice.** The kit can choose a prerelease as the
+  target and can install a specific version from the URL. Protato always targets
+  the `latest` dist-tag and does not install an arbitrary version from the UI.
+- **Freshness at the moment of updating.** Protato's `planUpdate` asks the
+  registry again when the update is submitted, so it installs the latest version
+  at that moment rather than whatever the page showed. The kit builds the update
+  command from the package info cached when the page was rendered, and the
+  update requests do not age-check that cache, so the target can be stale if the
+  page has been open for a while.
+
+#### Acting on the result
+
+The kit's update link is a GET (`/manage-prototype/plugins/update?package=...`)
+that renders a confirmation page showing the command, with a button. The
+browser JS posts, `exec` runs npm in the kit's own process and exits after six
+seconds, and the browser polls `/manage-prototype/plugins/<mode>/status` once a
+second for up to 30 seconds. The `kitRestarted` flag, set when the routes module
+loads after the restart, is how the poll knows the new process is up.
+
+Protato posts the update form directly to `/manage-prototype/plugins/update`.
+`planUpdate` re-validates the package, refetches the latest version, and checks
+that it is newer before npm runs with `<packageName>@<version> --save-exact`.
+The change
+runs under the change lock, installs any newly declared `pluginDependencies`
+from the plugin config in `node_modules`, rebuilds, and awaits the supervisor's
+restart before rendering the result page. Because the dev/manage server is a
+separate process from the prototype server in Protato, the request can stay open
+across the restart, so there is no status polling and no client-side timer.
+
+The trade-off is that Protato's result is tied to that one HTTP request: if the
+user navigates away or the request times out while npm and the restart are still
+running, the result page is lost even though the change continues. The kit's
+polling survives a page reload, and its confirmation page shows the exact
+command before anything runs. Protato reports npm failures with their output on
+the result page, and relies on the prototype's own build error page if the
+update breaks the build.
+
+Overall, Protato's syncing is smaller and cheaper: `registry.js` replaces the
+registry part of `packages.js` and `requestHttps.js`, which also carry install metadata, descriptions and
+tarball extraction. The kit's syncing is more thorough on prereleases and
+version pinning; Protato's is safer about what it calls updateable and never
+makes a page wait for npm.
 
 ### 4. Plugin metadata
 

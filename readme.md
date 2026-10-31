@@ -27,9 +27,13 @@ updating or uninstalling runs npm in the project, then rebuilds and restarts the
 prototype.
 
 Installed registry plugins are checked against the npm registry for newer
-versions. Updating installs the latest version with npm, installs any new plugin
-dependencies it declares, then rebuilds and restarts the prototype. Protato
-itself cannot be updated from the plugins page.
+versions. The check runs in the background when the server starts and every 15
+minutes, so opening the plugins page never waits for the network, and an
+unreachable registry leaves the last known versions in place. The "Check for
+updates" button on that page refreshes them on demand. Updating installs the
+latest version with npm, installs any new plugin dependencies it declares, then
+rebuilds and restarts the prototype. Protato itself cannot be updated from the
+plugins page.
 
 ### Proxy plugin configs
 
