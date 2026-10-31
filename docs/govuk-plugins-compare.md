@@ -310,13 +310,13 @@ These are adjacent to management but matter for running real prototypes:
   Existing plugins/templates that use these will behave differently.
 - **Less forgiving/changed view precedence**, as noted above.
 
-### 6. Likely Windows breakage in the npm runner
+### 6. Windows npm runner — done
 
-`npmCommand` is `npm.cmd` on Windows and is spawned with `shell: false`. Node
-does not support launching `.cmd` files directly without a shell on Windows —
-this path is likely to fail. The kit avoids this by using a shell/`exec` (with
-its own injection trade-off). If Windows support matters, this needs a
-`cmd.exe /c` or equivalent, while keeping arguments separate.
+npm is `npm.cmd` on Windows, which Node cannot launch with `shell: false`, so
+spawning it directly failed. `lib/manage-plugins/npm.js` and the end-to-end test
+helpers now use `cross-spawn`, which handles the `.cmd` shim and escapes
+arguments itself. That keeps the argument list separate, with no shell string
+built by Protato.
 
 ### 7. Smaller parity gaps
 
@@ -355,13 +355,14 @@ plugins, so it needs no network and no new dependencies, and
 checks follow the same registry npm uses.
 
 What that still leaves uncovered, versus the kit's Cypress suite: installing
-plugin dependencies from a tarball preview, CSRF failure handling on the plugin
-POSTs (unit tested), and Windows. Windows is the gap that matters, because
-`npm.cmd` is spawned without a shell there.
+plugin dependencies from a tarball preview, and CSRF failure handling on the
+plugin POSTs (unit tested). The end-to-end test runs on Windows in CI too, using
+the same npm helper as the npm runner.
 
 ## What to fix first
 
-1. Fix the Windows npm runner, if Windows support matters.
+Nothing blocking: install/update/uninstall is covered end to end on Windows as
+well as Linux.
 
 Install/update/uninstall is now covered end to end, and `..` filtering
 (`normaliseConfigPath`) and URL encoding (`getAssetServerPath`) are done. The

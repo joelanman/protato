@@ -142,7 +142,8 @@ describe('plugin routes', () => {
 		it('reports npm failure', async () => {
 			installPlugin.mockResolvedValue({
 				ok: false,
-				error: 'The plugin could not be installed.'
+				error: 'The plugin could not be installed.',
+				npmOutput: 'npm error 404 Not Found'
 			})
 
 			const response = await request(app)
@@ -154,7 +155,8 @@ describe('plugin routes', () => {
 			expect(model).toEqual(
 				expect.objectContaining({
 					outcome: 'failed',
-					message: 'The plugin could not be installed.'
+					message: 'The plugin could not be installed.',
+					npmOutput: 'npm error 404 Not Found'
 				})
 			)
 		})

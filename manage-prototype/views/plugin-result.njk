@@ -22,6 +22,11 @@
             </div>
           </div>
         </div>
+
+        {% if npmOutput %}
+          <h2 class="govuk-heading-m">npm output</h2>
+          <pre tabindex="0" class="govuk-prototype-kit-error-code govuk-!-margin-bottom-5">{{ npmOutput }}</pre>
+        {% endif %}
       {% else %}
         <h1 class="govuk-heading-l">
           {% if outcome == 'installed' %}
