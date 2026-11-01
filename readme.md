@@ -8,6 +8,12 @@ Requires Node.
 
 Run `npm install` in the root folder, and the `starter` folder.
 
+`npm run install:starter` does the starter install for you. It deletes
+`starter/package-lock.json` first, because the starter depends on protato with a
+`file:` link: npm copies protato's dependency tree into that lockfile, so it goes
+stale when the root dependencies change and then reports vulnerabilities that
+are already fixed. Run it after changing root dependencies.
+
 Run `npm run build` to build the manage-prototype assets.
 
 The `starter` folder is a base project that depends on `protato`,

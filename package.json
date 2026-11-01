@@ -12,6 +12,7 @@
 		"build": "node manage-prototype/build.js",
 		"build:manage": "node manage-prototype/build.js",
 		"dev": "cd starter && npm run dev",
+		"install:starter": "node scripts/install-starter.js",
 		"start": "cd starter && npm start",
 		"lint": "npx @biomejs/biome check",
 		"lint:fix": "npx @biomejs/biome check --write",
