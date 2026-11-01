@@ -201,7 +201,8 @@ describe('plugin routes', () => {
 			expect(model).toEqual(
 				expect.objectContaining({
 					outcome: 'installed',
-					installedPackages: ['new-plugin', 'needed-plugin']
+					installedPackages: ['new-plugin', 'needed-plugin'],
+					canRestart: true
 				})
 			)
 		})
@@ -219,7 +220,8 @@ describe('plugin routes', () => {
 				expect.objectContaining({
 					outcome: 'failed',
 					message: 'The plugin could not be installed.',
-					npmOutput: 'npm error 404 Not Found'
+					npmOutput: 'npm error 404 Not Found',
+					canRestart: false
 				})
 			)
 		})
@@ -229,7 +231,7 @@ describe('plugin routes', () => {
 
 			const response = await postInstall()
 
-			expect(readRender(response).model).toEqual(expect.objectContaining({ outcome: 'busy' }))
+			expect(readRender(response).model).toEqual(expect.objectContaining({ outcome: 'busy', canRestart: false }))
 		})
 
 		it('shows a server-side refusal', async () => {
@@ -247,7 +249,7 @@ describe('plugin routes', () => {
 
 			const response = await postInstall()
 
-			expect(readRender(response).model).toEqual(expect.objectContaining({ outcome: 'noChange' }))
+			expect(readRender(response).model).toEqual(expect.objectContaining({ outcome: 'noChange', canRestart: false }))
 		})
 	})
 
@@ -267,7 +269,8 @@ describe('plugin routes', () => {
 			expect(readRender(response).model).toEqual(
 				expect.objectContaining({
 					outcome: 'uninstalled',
-					removedPackages: ['asset-plugin', 'dependent-plugin']
+					removedPackages: ['asset-plugin', 'dependent-plugin'],
+					canRestart: true
 				})
 			)
 		})
@@ -306,7 +309,8 @@ describe('plugin routes', () => {
 				expect.objectContaining({
 					outcome: 'updated',
 					updatedPackage: 'asset-plugin',
-					installedPackages: ['needed-plugin']
+					installedPackages: ['needed-plugin'],
+					canRestart: true
 				})
 			)
 		})
@@ -322,7 +326,8 @@ describe('plugin routes', () => {
 			expect(readRender(response).model).toEqual(
 				expect.objectContaining({
 					outcome: 'noChange',
-					message: 'asset-plugin is already up to date.'
+					message: 'asset-plugin is already up to date.',
+					canRestart: false
 				})
 			)
 		})

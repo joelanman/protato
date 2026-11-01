@@ -42,6 +42,26 @@ const getCsrf = async (url) => {
 	return { token, cookie }
 }
 
+// Signs in to a production prototype and returns the cookies for later requests.
+const logIn = async (root, password) => {
+	const { token, cookie } = await getCsrf(root + '/manage-prototype/password')
+
+	const response = await fetch(root + '/manage-prototype/password', {
+		method: 'POST',
+		redirect: 'manual',
+		headers: {
+			cookie,
+			'content-type': 'application/x-www-form-urlencoded',
+			// production sets a secure session cookie; this test runs over HTTP
+			'x-forwarded-proto': 'https'
+		},
+		body: new URLSearchParams({ _csrf: token, password, returnURL: '/' })
+	})
+
+	const cookies = response.headers.getSetCookie().map((setCookie) => setCookie.split(';')[0])
+	return cookies.join('; ')
+}
+
 describe('Server', () => {
 	let serverProcess = null
 	let testDir = null
@@ -424,7 +444,18 @@ describe('Server (error in Sass)', () => {
 		serverProcess.stdout.pipe(process.stdout)
 		serverProcess.stderr.pipe(process.stderr)
 
-		const body = await waitForErrorPage(root)
+		let cookie
+
+		if (command === 'start') {
+			// the error app must still be behind the password in production
+			const unauthenticated = await waitForResponse(root, { redirect: 'manual' })
+			expect(unauthenticated.status).toBe(302)
+			expect(unauthenticated.headers.get('location')).toContain('/manage-prototype/password')
+
+			cookie = await logIn(root, 'test')
+		}
+
+		const body = await waitForErrorPage(root, { cookie })
 
 		expect(body).toContain('There is an error')
 		expect(body).toContain('application.scss')
@@ -467,12 +498,27 @@ async function waitForServerReady(process, readyMessage) {
 	})
 }
 
-// wait for the error page to be served, ignoring any early proxy errors
-async function waitForErrorPage(url, timeout = 4000) {
+// wait for the server to accept requests without following redirects
+async function waitForResponse(url, options = {}, timeout = 4000) {
 	const start = Date.now()
 	while (Date.now() - start < timeout) {
 		try {
-			const body = await (await fetch(url)).text()
+			return await fetch(url, options)
+		} catch {
+			// server not up yet
+		}
+		await new Promise((resolve) => setTimeout(resolve, 100))
+	}
+	throw new Error(`No response from ${url} within ${timeout}ms`)
+}
+
+// wait for the error page to be served, ignoring any early proxy errors
+async function waitForErrorPage(url, { cookie, timeout = 4000 } = {}) {
+	const start = Date.now()
+	while (Date.now() - start < timeout) {
+		try {
+			const response = await fetch(url, { headers: { 'x-forwarded-proto': 'https', ...(cookie ? { cookie } : {}) } })
+			const body = await response.text()
 			if (body.includes('There is an error')) {
 				return body
 			}

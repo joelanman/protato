@@ -148,26 +148,16 @@ const postChange = async (action, pluginPackageName) => {
 	return readPage(response)
 }
 
-// A change is picked up when the supervisor sees npm's lockfile change, so the
-// prototype restarts a moment after the result page is shown.
-async function waitForPage(url, isExpected) {
-	const timeout = Date.now() + TIMEOUT_MS
-	let body = ''
-	let status = 0
+// The result page's restart button posts to the supervisor, which restarts the
+// prototype and then redirects to the plugins page. The fetch follows the
+// redirect, so it only resolves once the new prototype is serving pages.
+async function restartPrototype() {
+	const response = await fetch(`${root}/__protato/restart?returnTo=/manage-prototype/plugins`, {
+		method: 'POST',
+		signal: AbortSignal.timeout(TIMEOUT_MS)
+	})
 
-	while (Date.now() < timeout) {
-		const response = await get(url)
-		status = response.status
-		body = await response.text()
-
-		if (status === 200 && isExpected(body)) {
-			return body
-		}
-
-		await new Promise((resolve) => setTimeout(resolve, 250))
-	}
-
-	throw new Error(`The page at ${url} never reached the expected state (last status ${status}):\n${body}`)
+	return readPage(response)
 }
 
 const readProjectPackage = () => JSON.parse(fs.readFileSync(path.join(project.dir, 'package.json'), 'utf8'))
@@ -278,23 +268,26 @@ describe('plugin management end to end', () => {
 	})
 
 	it(
-		'installs a plugin, then rebuilds and restarts with it',
+		'installs a plugin, then restarts with it',
 		async () => {
 			const result = await postChange('/install', installPackageName)
 
 			expect(result).toContain('Plugin installed')
+			expect(result).toContain('Restart prototype')
 			expect(isInstalled(installPackageName, '1.0.0')).toBe(true)
+
+			await restartPrototype()
 
 			// the stylesheet is served and linked from the prototype's own pages, so
 			// the restart picked the plugin up
 			const url = stylesheetUrl(installPackageName)
-			expect(await waitForPage(url, (body) => body.includes(colour(1)))).toContain(colour(1))
-
-			expect(await waitForPage('/', (body) => body.includes(url))).toContain(url)
+			expect(await readPage(await get(url))).toContain(colour(1))
+			expect(await readPage(await get('/'))).toContain(url)
 
 			// the link comes from the installed package.json
 			const pluginsPage = await readForm('/manage-prototype/plugins')
 			expect(pluginsPage.html).toContain(`href="${installPackageHomepage}"`)
+			expect(pluginsPage.html).toContain('Restart prototype')
 		},
 		TIMEOUT_MS
 	)
@@ -320,10 +313,13 @@ describe('plugin management end to end', () => {
 			const result = await postChange('/update', updatePackageName)
 
 			expect(result).toContain('Plugin updated')
+			expect(result).toContain('Restart prototype')
 			expect(isInstalled(updatePackageName, '1.0.1')).toBe(true)
 
+			await restartPrototype()
+
 			const url = stylesheetUrl(updatePackageName)
-			expect(await waitForPage(url, (body) => body.includes(colour(3)))).toContain(colour(3))
+			expect(await readPage(await get(url))).toContain(colour(3))
 		},
 		TIMEOUT_MS
 	)
@@ -334,10 +330,13 @@ describe('plugin management end to end', () => {
 			const result = await postChange('/uninstall', updatePackageName)
 
 			expect(result).toContain('Plugins uninstalled')
+			expect(result).toContain('Restart prototype')
 			expect(readProjectPackage().dependencies[updatePackageName]).toBeUndefined()
 
+			await restartPrototype()
+
 			const removedUrl = stylesheetUrl(updatePackageName)
-			await waitForPage('/', (body) => !body.includes(removedUrl))
+			expect(await readPage(await get('/'))).not.toContain(removedUrl)
 		},
 		TIMEOUT_MS
 	)

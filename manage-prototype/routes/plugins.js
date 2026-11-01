@@ -55,10 +55,11 @@ router.post('/check-for-updates', async (request, response) => {
 })
 
 // The change has already happened by the time this renders, so this process can
-// show the result. The supervisor restarts the prototype afterwards, from the
-// lockfile change npm made, and requests wait in its proxy until the new process
-// is ready. Manage pages do not load the livereload script, so the reload that
-// follows the restart cannot submit this form again.
+// show the result. The plugin is not active until the prototype restarts; the
+// result page's restart button posts to the supervisor, which restarts this
+// process and then redirects back to the plugins page.
+const outcomesThatNeedRestart = new Set(['installed', 'updated', 'uninstalled'])
+
 function renderResult(response, result) {
 	response.render('plugin-result', {
 		pageName: 'Plugins',
@@ -67,7 +68,8 @@ function renderResult(response, result) {
 		npmOutput: result.npmOutput,
 		installedPackages: result.installedPackages,
 		removedPackages: result.removedPackages,
-		updatedPackage: result.packageName
+		updatedPackage: result.packageName,
+		canRestart: outcomesThatNeedRestart.has(result.outcome)
 	})
 }
 

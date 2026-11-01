@@ -23,8 +23,10 @@ In development, plugins can be installed, updated and uninstalled from
 `/manage-prototype/plugins`. `known-plugins.json` uses the GOV.UK Prototype Kit
 format: `plugins.available` lists the packages Protato suggests, and
 `plugins.required` lists packages that cannot be uninstalled. Installing,
-updating or uninstalling runs npm in the project, then rebuilds and restarts the
-prototype.
+updating or uninstalling runs npm in the project. The result page then has a
+**Restart prototype** button; the plugin is not active until the prototype
+restarts. The same button on the plugins page picks up packages installed from a
+terminal.
 
 Installed registry plugins are checked against the npm registry for newer
 versions. The check runs in the background when the server starts and every 15

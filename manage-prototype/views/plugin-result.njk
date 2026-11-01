@@ -43,12 +43,25 @@
         <p class="govuk-body">
           {% if outcome == 'noChange' %}
             {{ message }}
-          {% elif outcome == 'updated' %}
-            The prototype has restarted with the updated plugin.
+          {% elif canRestart %}
+            The plugin is installed. Restart the prototype to apply the change.
           {% else %}
-            The prototype has restarted with the new plugins.
+            {{ message }}
           {% endif %}
         </p>
+
+        {% if canRestart %}
+          <div class="govuk-inset-text">
+            <p class="govuk-body">
+              The plugin will not load until the prototype restarts.
+            </p>
+            <form method="post" action="/__protato/restart?returnTo=/manage-prototype/plugins">
+              <button class="govuk-button govuk-!-margin-bottom-0" data-module="govuk-button">
+                Restart prototype
+              </button>
+            </form>
+          </div>
+        {% endif %}
       {% endif %}
 
       {% if updatedPackage %}
