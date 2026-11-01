@@ -232,9 +232,16 @@ scenarios.
   the handshake never came back, so the browser was left waiting with no error.
   Upgrades are now tunnelled to the prototype at the socket level, because
   express middleware never sees them. Upgrades under `/manage-prototype` are
-  dropped, so no manage path reaches the prototype. `connect`'s `'end'` event
-  has to be handled as well as `'close'`: a socket from an http server stays
-  half open when the other end finishes.
+  dropped, so no manage path reaches the prototype. `stream.pipeline` moves each
+  direction and only tears the pair down once both have flushed, so the last
+  frame is not cut off. If the prototype is not listening, the browser gets a
+  `502` rather than a dropped socket, which is what a websocket opened during a
+  restart sees.
+
+Upgrades are tunnelled to the whole server rather than a path prefix, because
+the prototype owns the root: there is no prefix to filter on. Leaving out the
+manage paths is the equivalent, and `livereload` is a server-sent event stream
+rather than a websocket, so nothing else on the dev server expects upgrades.
 
 ### Still outstanding
 
@@ -247,6 +254,20 @@ The `host` rewrite means prototype code that builds absolute URLs from
 `req.get('host')` leaks the prototype's port in Protato and not in the kit. The
 upgrade proxy shares `getForwardedHeaders` with the middleware, so both change
 together when this is decided.
+
+Two constraints hold the proxy together and are easy to break by accident:
+
+- **Nothing may parse the body before the proxy.** `request.pipe(proxyRequest)`
+  only works while the body is unread, and the manage app's body parsers are
+  mounted after the proxy for that reason.
+- **The upgrade proxy is for a plain http target.** It uses `net.connect`
+  because the target is always the prototype process on localhost. A TLS target
+  would need `tls.connect`, and `req.get('host')` style rewrites mean the target
+  is never an IPv6 literal.
+
+Proxy requests use `agent: false`, so each one opens its own connection to the
+prototype. A pooled connection that the prototype closed as it restarted would
+otherwise fail an occasional request with a socket hang up.
 
 ## Should the proxy be an npm package instead
 
