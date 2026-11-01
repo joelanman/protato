@@ -289,6 +289,28 @@ them answers a request without our own error handling, so adopting one trades
 about 70 readable lines we have tests for against a dependency we would still
 have to configure.
 
+Re-measured after the WebSocket work, including `http-proxy-middleware`'s own
+tunnel (`ws: true`, wired with `proxy.upgrade`):
+
+| | hand-rolled | `http-proxy-middleware` 4.2.1 |
+| --- | --- | --- |
+| SSE headers flushed | yes, added | no, needs an `on.proxyRes` hook |
+| Prototype unreachable | kit error page | 504, and we want the error page instead |
+| Browser leaves a websocket | upstream destroyed | **upstream left open** |
+| Last frame after a clean close | delivered | delivered |
+| Code it replaces | – | most of `createUpgradeProxy`, and the middleware shell |
+| Dependencies | 0 | 11 (4.5 MB, ESM only) |
+
+So the package removes the parts that were never hard, and keeps the parts we
+had to fix: SSE flushing, the error page, and the websocket teardown all still
+need work on top of it. That is roughly 60 lines and two hooks saved for 11
+dependencies, an ESM-only package and a `^22.15.0` Node floor that Protato does
+not declare.
+
+Decision: keep the hand-rolled proxy. Every defect found across three packages
+was a missing _behaviour_, not missing plumbing, and the behaviour is the part
+with tests attached.
+
 Reconsider when any of these becomes true:
 
 1. Livereload is injected into proxied HTML, the way `resp-modifier` does it.
@@ -298,8 +320,12 @@ Reconsider when any of these becomes true:
    a websocket library's own handshake handling.
 3. More than one target, path routing, auth header injection, TLS to the target,
    or retries.
-4. `lib/dev/proxy.js` passes about 150 lines, or starts reimplementing
-   hop-by-hop headers, trailers or further upgrade edge cases.
+4. The proxy starts touching parts of HTTP we would need to look up: hop-by-hop
+   headers, trailers, chunked edge cases, HTTP/2, or proxy authentication.
+
+Deliberately not a trigger: line count. `lib/dev/proxy.js` is past 150 lines and
+that is fine, because what grows is policy (flush, teardown, error pages) that a
+package does not supply. The trigger is unfamiliar protocol work, not volume.
 
 If that happens, `httpxy` first (zero dependencies, maintained, `proxyUpgrade`),
 then `http-proxy-middleware` if routing or response rewriting is needed. Not
