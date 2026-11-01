@@ -195,7 +195,7 @@ describe('plugin routes', () => {
 
 			const response = await postInstall()
 
-			expect(installPlugin).toHaveBeenCalledWith('new-plugin', expect.anything())
+			expect(installPlugin).toHaveBeenCalledWith('new-plugin')
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugin-result')
 			expect(model).toEqual(
@@ -263,7 +263,7 @@ describe('plugin routes', () => {
 				.type('form')
 				.send({ packageName: 'asset-plugin' })
 
-			expect(uninstallPlugin).toHaveBeenCalledWith('asset-plugin', expect.anything())
+			expect(uninstallPlugin).toHaveBeenCalledWith('asset-plugin')
 			expect(readRender(response).model).toEqual(
 				expect.objectContaining({
 					outcome: 'uninstalled',
@@ -299,7 +299,7 @@ describe('plugin routes', () => {
 				.type('form')
 				.send({ packageName: 'asset-plugin' })
 
-			expect(updatePlugin).toHaveBeenCalledWith('asset-plugin', expect.anything())
+			expect(updatePlugin).toHaveBeenCalledWith('asset-plugin')
 			const { view, model } = readRender(response)
 			expect(view).toBe('plugin-result')
 			expect(model).toEqual(

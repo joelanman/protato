@@ -74,19 +74,19 @@ function renderResult(response, result) {
 // Changes report their outcome on the result page instead of an HTTP status,
 // and check their own preconditions so a direct POST cannot bypass the UI.
 router.post('/install', async (request, response) => {
-	const result = await installPlugin(request.body.packageName, response)
+	const result = await installPlugin(request.body.packageName)
 
 	renderResult(response, result)
 })
 
 router.post('/uninstall', async (request, response) => {
-	const result = await uninstallPlugin(request.body.packageName, response)
+	const result = await uninstallPlugin(request.body.packageName)
 
 	renderResult(response, result)
 })
 
 router.post('/update', async (request, response) => {
-	const result = await updatePlugin(request.body.packageName, response)
+	const result = await updatePlugin(request.body.packageName)
 
 	renderResult(response, result)
 })
