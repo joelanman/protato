@@ -1,5 +1,10 @@
 # Plan: small supervisor, manage prototype in one process
 
+> **Update:** the prototype process no longer builds itself. The build, sass
+> included, runs in the supervisor's process and the result is sent over IPC.
+> See [build-in-parent.md](build-in-parent.md). The parts below about the
+> prototype process building are history.
+
 ## Goal
 
 Replace the current 3-way split of manage prototype with:

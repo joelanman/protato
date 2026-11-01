@@ -32,7 +32,8 @@ already rendered by the old process, so the browser always gets it.
 - The plugin result never has to survive a restart: it is shown before one.
 - No result file, redirect hand-off or status polling.
 - The supervisor stays generic: it knows `ready`, `restart`, `reload` and `down`,
-  not plugins.
+  not plugins. Since the build moved back to the parent it no longer handles
+  `reload`; see [build-in-parent.md](build-in-parent.md).
 - Manage prototype stays one app.
 - A terminal `npm install` is applied with the restart button on the plugins page.
 
