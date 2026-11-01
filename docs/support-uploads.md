@@ -228,23 +228,25 @@ scenarios.
   timed out. The upstream request is now destroyed when the browser goes away.
 - **A proxy failure showed express's stack trace.** Requests that arrive while
   the prototype restarts now get the kit error page.
+- **WebSockets were not proxied.** An upgrade request reached the prototype but
+  the handshake never came back, so the browser was left waiting with no error.
+  Upgrades are now tunnelled to the prototype at the socket level, because
+  express middleware never sees them. Upgrades under `/manage-prototype` are
+  dropped, so no manage path reaches the prototype. `connect`'s `'end'` event
+  has to be handled as well as `'close'`: a socket from an http server stays
+  half open when the other end finishes.
 
 ### Still outstanding
 
 | Scenario | `lib/dev/proxy.js` | Kit (`browser-sync` → `http-proxy`) |
 | --- | --- | --- |
-| WebSockets | Not proxied | Proxied (`ws: true`) |
 | HTML snippet injection | None | Yes (`resp-modifier`) |
 | `host` header | Rewritten to the prototype port | Browser's `Host` kept |
 
 The `host` rewrite means prototype code that builds absolute URLs from
-`req.get('host')` leaks the prototype's port in Protato and not in the kit.
-
-WebSocket proxying is a small amount of work, proven: a 25 line raw socket
-tunnel, forwarding the request line, headers and the `head` bytes, with both
-sockets destroyed when either closes. It needs a decision about upgrades to
-`/manage-prototype` paths, and tests can use `http.request` with
-`Connection: Upgrade` rather than adding `ws` as a dependency.
+`req.get('host')` leaks the prototype's port in Protato and not in the kit. The
+upgrade proxy shares `getForwardedHeaders` with the middleware, so both change
+together when this is decided.
 
 ## Should the proxy be an npm package instead
 
@@ -257,7 +259,7 @@ hand-rolled proxy:
 | Prototype dies mid-response | response destroyed | browser hangs | response terminated | response terminated |
 | Prototype unreachable | 500 error page | browser hangs | browser hangs | 504 |
 | Cancelled request | upstream destroyed | upstream left open | untested | untested |
-| WebSockets | no, ~25 lines | built in | `proxyUpgrade` | built in |
+| WebSockets | yes, ~30 lines | built in | `proxyUpgrade` | built in |
 | Dependencies | 0 | 3 | 0 | 11 (4.5 MB, ESM only) |
 
 Decision: keep the hand-rolled proxy. Every defect found was a missing
@@ -268,14 +270,15 @@ have to configure.
 
 Reconsider when any of these becomes true:
 
-1. WebSocket upgrades need more than tunnelling: routing, or per-message logic.
-2. Livereload is injected into proxied HTML, the way `resp-modifier` does it.
+1. Livereload is injected into proxied HTML, the way `resp-modifier` does it.
    `http-proxy-middleware`'s `on.proxyRes` and `selfHandleResponse` are exactly
    that hook, so it would become the better choice at that point.
+2. WebSocket upgrades need more than tunnelling: routing, per-message logic, or
+   a websocket library's own handshake handling.
 3. More than one target, path routing, auth header injection, TLS to the target,
    or retries.
 4. `lib/dev/proxy.js` passes about 150 lines, or starts reimplementing
-   hop-by-hop headers, trailers or upgrade edge cases.
+   hop-by-hop headers, trailers or further upgrade edge cases.
 
 If that happens, `httpxy` first (zero dependencies, maintained, `proxyUpgrade`),
 then `http-proxy-middleware` if routing or response rewriting is needed. Not
