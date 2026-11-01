@@ -34,8 +34,8 @@ const stopProcess = async (proc) => {
 }
 
 // Reads the CSRF token and cookie from a rendered form, the way a browser would
-const getCsrf = async (url) => {
-	const response = await fetch(url)
+const getCsrf = async (url, headers = {}) => {
+	const response = await fetch(url, { headers })
 	const html = await response.text()
 	const token = /name="_csrf" value="([^"]+)"/.exec(html)?.[1]
 	const cookie = (response.headers.get('set-cookie') ?? '').split(';')[0]
@@ -45,7 +45,8 @@ const getCsrf = async (url) => {
 
 // Signs in to a production prototype and returns the cookies for later requests.
 const logIn = async (root, password) => {
-	const { token, cookie } = await getCsrf(root + '/manage-prototype/password')
+	const httpsHeaders = { 'x-forwarded-proto': 'https' }
+	const { token, cookie } = await getCsrf(root + '/manage-prototype/password', httpsHeaders)
 
 	const response = await fetch(root + '/manage-prototype/password', {
 		method: 'POST',
@@ -105,17 +106,28 @@ describe('Server', () => {
 	}
 
 	describe('production', () => {
+		const httpsHeaders = { 'x-forwarded-proto': 'https' }
+
 		afterEach(async () => {
 			if (serverProcess) {
 				await stopProcess(serverProcess)
 			}
 		})
 
+		it('redirects HTTP requests to HTTPS', async () => {
+			await startServer({ args: ['start'], env: { PASSWORD: 'test' } })
+
+			const response = await fetch(root, { redirect: 'manual' })
+
+			expect(response.status).toBe(302)
+			expect(response.headers.get('location')).toBe('https://localhost:' + port + '/')
+		})
+
 		it('errors if no passwords set', async () => {
 			console.log('prod test')
 			await startServer({ args: ['start'] })
 
-			const response = await fetch(root)
+			const response = await fetch(root, { headers: httpsHeaders })
 			expect(response.status).toBe(500)
 		})
 
@@ -123,7 +135,7 @@ describe('Server', () => {
 			console.log('prod test')
 			await startServer({ args: ['start'], env: { PASSWORD: 'test' } })
 
-			const response = await fetch(root)
+			const response = await fetch(root, { headers: httpsHeaders })
 			expect(response.redirected).toBe(true)
 			expect(response.url).toBe(root + '/manage-prototype/password?returnURL=%2F')
 
@@ -134,14 +146,29 @@ describe('Server', () => {
 			// the password page's assets must load without a password too. No redirects:
 			// following one would turn the auth redirect into a 200 password page.
 			const stylesheet = await fetch(root + '/manage-prototype/public/stylesheets/manage-prototype.css', {
+				headers: httpsHeaders,
 				redirect: 'manual'
 			})
 			expect(stylesheet.status).toBe(200)
 
 			const script = await fetch(root + '/manage-prototype/govuk-frontend/dist/govuk/govuk-frontend.min.js', {
+				headers: httpsHeaders,
 				redirect: 'manual'
 			})
 			expect(script.status).toBe(200)
+		})
+
+		it('serves over HTTP without secure cookies when HTTPS is turned off', async () => {
+			await startServer({ args: ['start'], env: { PASSWORD: 'test', USE_HTTPS: 'false' } })
+
+			const response = await fetch(root)
+
+			expect(response.redirected).toBe(true)
+			expect(response.url).toBe(root + '/manage-prototype/password?returnURL=%2F')
+
+			// no HTTPS redirect and no secure cookies
+			const setCookie = response.headers.getSetCookie().join(';')
+			expect(setCookie).not.toContain('Secure')
 		})
 	})
 
@@ -506,7 +533,10 @@ describe('Server (error in Sass)', () => {
 
 		if (command === 'start') {
 			// the error app must still be behind the password in production
-			const unauthenticated = await waitForResponse(root, { redirect: 'manual' })
+			const unauthenticated = await waitForResponse(root, {
+				redirect: 'manual',
+				headers: { 'x-forwarded-proto': 'https' }
+			})
 			expect(unauthenticated.status).toBe(302)
 			expect(unauthenticated.headers.get('location')).toContain('/manage-prototype/password')
 

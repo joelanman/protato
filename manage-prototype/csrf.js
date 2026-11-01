@@ -36,7 +36,7 @@ function getUtilities() {
 		cookieOptions: {
 			sameSite: 'lax',
 			path: '/manage-prototype',
-			secure: config.env === 'production',
+			secure: config.isSecure,
 			httpOnly: true
 		},
 		// forms are rendered by the server, so the token comes back in the body

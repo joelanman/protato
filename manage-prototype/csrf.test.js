@@ -3,7 +3,7 @@ import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { config } = vi.hoisted(() => ({
-	config: { env: 'development', csrfSecret: undefined }
+	config: { env: 'development', csrfSecret: undefined, isSecure: false }
 }))
 
 vi.mock('../lib/config.js', () => ({
@@ -37,6 +37,7 @@ describe('csrf protection', () => {
 	beforeEach(() => {
 		clearCache()
 		config.env = 'development'
+		config.isSecure = false
 		config.csrfSecret = undefined
 		app = createApp()
 	})
@@ -66,11 +67,22 @@ describe('csrf protection', () => {
 
 	it('marks the cookie secure in production', async () => {
 		config.env = 'production'
+		config.isSecure = true
 		clearCache()
 
 		const response = await request(app).get('/manage-prototype/form')
 
 		expect(response.headers['set-cookie'][0]).toContain('Secure')
+	})
+
+	it('does not mark the cookie secure when HTTPS is turned off', async () => {
+		config.env = 'production'
+		config.isSecure = false
+		clearCache()
+
+		const response = await request(app).get('/manage-prototype/form')
+
+		expect(response.headers['set-cookie'][0]).not.toContain('Secure')
 	})
 
 	it('keeps the same token across requests, so open forms keep working', async () => {
