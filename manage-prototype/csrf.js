@@ -2,8 +2,8 @@
 //
 // Uses csrf-csrf (the double submit cookie pattern, as the GOV.UK Prototype Kit
 // does). The token is put in a cookie and in a hidden field in each form, and a
-// POST is only accepted when they match. No server side state, so it works in
-// the dev manage app, which has no session.
+// POST is only accepted when they match. No server side state is needed, so it
+// works with or without a session.
 
 import cookieParser from 'cookie-parser'
 import { doubleCsrf } from 'csrf-csrf'

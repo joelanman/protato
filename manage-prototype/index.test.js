@@ -3,6 +3,7 @@ import path from 'node:path'
 import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getConfig } from '../lib/config.js'
 import { installPlugin, uninstallPlugin, updatePlugin } from '../lib/manage-plugins/change.js'
 import * as registry from '../lib/manage-plugins/registry.js'
 import { errorHandler, pageNotFound } from '../lib/middleware/errors.js'
@@ -119,27 +120,44 @@ const createUrl = `/manage-prototype/templates/create?packageName=${encodeURICom
 describe('manage prototype app', () => {
 	let app
 
-	beforeEach(() => {
-		vi.clearAllMocks()
-		mockNunjucksEnv.render.mockImplementation(renderToString)
-		app = express()
+	// mounted the way lib/app.js mounts it, with the app's 404 and error pages
+	const createTestApp = () => {
+		const testApp = express()
 
 		// lib/app.js parses the body before manage prototype is mounted
-		app.use(express.urlencoded({ extended: true }))
-		app.use((req, res, next) => {
+		testApp.use(express.urlencoded({ extended: true }))
+		testApp.use((req, res, next) => {
 			res.render = (view, model) => res.send(renderToString(view, model))
 			next()
 		})
 
-		// mounted the way lib/app.js mounts it, with the app's 404 and error pages
-		app.use('/manage-prototype', getManagePrototypeApp())
-		app.use(pageNotFound)
-		app.use(errorHandler)
+		testApp.use('/manage-prototype', getManagePrototypeApp())
+		testApp.use(pageNotFound)
+		testApp.use(errorHandler)
+
+		return testApp
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks()
+		vi.mocked(getConfig).mockReturnValue({ env: 'development', serviceName: 'Test Service', passwords: ['secret'] })
+		mockNunjucksEnv.render.mockImplementation(renderToString)
+		app = createTestApp()
 	})
 
 	it('sets serviceName and isDevelopment as nunjucks globals', () => {
 		expect(mockNunjucksEnv.addGlobal).toHaveBeenCalledWith('serviceName', 'Test Service')
 		expect(mockNunjucksEnv.addGlobal).toHaveBeenCalledWith('isDevelopment', true)
+	})
+
+	it('serves only the pages that need the session in production', async () => {
+		vi.mocked(getConfig).mockReturnValue({ env: 'production', serviceName: 'Test Service', passwords: [] })
+
+		const productionApp = createTestApp()
+
+		expect((await request(productionApp).get('/manage-prototype/templates')).status).toBe(404)
+		expect((await request(productionApp).get('/manage-prototype/plugins')).status).toBe(404)
+		expect((await request(productionApp).get('/manage-prototype')).status).toBe(404)
 	})
 
 	describe('GET /', () => {
