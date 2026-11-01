@@ -132,15 +132,11 @@ async function waitForPluginsPageText(text) {
 	throw new Error(`The plugins page never showed: ${text}`)
 }
 
-// Posts the change, then follows the redirect the way a browser would. The
-// result goes in a session the POST creates, so the cookie it sets has to be
-// sent with the request that follows.
 const postChange = async (action, pluginPackageName) => {
 	const form = await readForm('/manage-prototype/plugins')
 
 	const response = await fetch(`${root}/manage-prototype/plugins${action}`, {
 		method: 'POST',
-		redirect: 'manual',
 		signal: AbortSignal.timeout(TIMEOUT_MS),
 		headers: {
 			'content-type': 'application/x-www-form-urlencoded',
@@ -149,18 +145,29 @@ const postChange = async (action, pluginPackageName) => {
 		body: new URLSearchParams({ _csrf: form.token, packageName: pluginPackageName })
 	})
 
-	const location = response.headers.get('location')
+	return readPage(response)
+}
 
-	if (response.status !== 303 || location !== '/manage-prototype/plugins/result') {
-		throw new Error(`Expected a 303 to the result page, got ${response.status} ${location}: ${await response.text()}`)
+// A change is picked up when the supervisor sees npm's lockfile change, so the
+// prototype restarts a moment after the result page is shown.
+async function waitForPage(url, isExpected) {
+	const timeout = Date.now() + TIMEOUT_MS
+	let body = ''
+	let status = 0
+
+	while (Date.now() < timeout) {
+		const response = await get(url)
+		status = response.status
+		body = await response.text()
+
+		if (status === 200 && isExpected(body)) {
+			return body
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 250))
 	}
 
-	const sessionCookie = response.headers
-		.getSetCookie()
-		.find((cookie) => cookie.startsWith('connect.sid='))
-		.split(';')[0]
-
-	return readPage(await get(location, { headers: { cookie: sessionCookie } }))
+	throw new Error(`The page at ${url} never reached the expected state (last status ${status}):\n${body}`)
 }
 
 const readProjectPackage = () => JSON.parse(fs.readFileSync(path.join(project.dir, 'package.json'), 'utf8'))
@@ -279,11 +286,11 @@ describe('plugin management end to end', () => {
 			expect(isInstalled(installPackageName, '1.0.0')).toBe(true)
 
 			// the stylesheet is served and linked from the prototype's own pages, so
-			// the rebuild and restart picked the plugin up
+			// the restart picked the plugin up
 			const url = stylesheetUrl(installPackageName)
-			expect(await readPage(await get(url))).toContain(colour(1))
+			expect(await waitForPage(url, (body) => body.includes(colour(1)))).toContain(colour(1))
 
-			expect(await readPage(await get('/'))).toContain(url)
+			expect(await waitForPage('/', (body) => body.includes(url))).toContain(url)
 
 			// the link comes from the installed package.json
 			const pluginsPage = await readForm('/manage-prototype/plugins')
@@ -316,7 +323,7 @@ describe('plugin management end to end', () => {
 			expect(isInstalled(updatePackageName, '1.0.1')).toBe(true)
 
 			const url = stylesheetUrl(updatePackageName)
-			expect(await readPage(await get(url))).toContain(colour(3))
+			expect(await waitForPage(url, (body) => body.includes(colour(3)))).toContain(colour(3))
 		},
 		TIMEOUT_MS
 	)
@@ -329,7 +336,8 @@ describe('plugin management end to end', () => {
 			expect(result).toContain('Plugins uninstalled')
 			expect(readProjectPackage().dependencies[updatePackageName]).toBeUndefined()
 
-			expect(await readPage(await get('/'))).not.toContain(stylesheetUrl(updatePackageName))
+			const removedUrl = stylesheetUrl(updatePackageName)
+			await waitForPage('/', (body) => !body.includes(removedUrl))
 		},
 		TIMEOUT_MS
 	)

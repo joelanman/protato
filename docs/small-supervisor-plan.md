@@ -68,16 +68,12 @@ flowchart LR
 
 - `server.js`: `http.createServer` on the port the browser uses. Serves
   livereload, and sends everything else to the proxy.
-- `proxy.js`: the existing proxy, plus:
-  - **buffering**: while the child is not ready (starting or restarting),
-    requests wait in a queue and are replayed when the child sends `ready`.
-    Cap the wait (for example 30s), then respond 503 with a short plain-text or
-    static HTML message: "The prototype did not start, check the terminal".
-  - **restart header**: if a child response has `x-protato-restart: 1`,
-    remove that header, mark the child as not ready (so requests start
-    buffering) and start a restart *before* sending the response to the
-    browser. This makes sure the browser's follow-up request lands on the new
-    process.
+- `proxy.js`: the existing proxy, plus **buffering**: while the child is not
+  ready (starting or restarting), requests wait in a queue and are replayed when
+  the child sends `ready`. Cap the wait (for example 30s), then respond 503 with
+  a short plain-text or static HTML message: "The prototype did not start, check
+  the terminal". A request whose connection fails while the child is restarting
+  waits for the new process, but only if it is safe to send again (GET or HEAD).
 - `supervisor.js`: fork, stop and restart the child (keep the existing
   coalescing in `restartPrototypeServer`). It no longer sends a build result.
   Messages it handles:
@@ -158,31 +154,31 @@ manage-prototype/
 **Plugin changes** (`lib/manage-plugins/change.js`, `routes/plugins.js`)
 
 Today a POST runs npm, rebuilds, waits for the restart, then renders the
-result. New flow, using post/redirect/get:
+result. New flow:
 
 1. `POST /manage-prototype/plugins/install` (or uninstall, update)
-2. The child sends `change-start` over IPC, runs npm, then sends `change-end`.
-   Use `try/finally` so `change-end` is always sent.
-3. It stores the result in the session, for example
-   `request.session.pluginResult = result`. The file session store survives
-   restarts.
-4. It responds `303 Location: /manage-prototype/plugins/result` with
-   `x-protato-restart: 1`, but only if npm changed something (outcome `ok`).
-   For `busy` or `failed`, redirect without the header.
-5. The supervisor starts the restart before forwarding the 303. The browser's
-   `GET /manage-prototype/plugins/result` is buffered until the new child is
-   ready.
-6. The new child renders `plugin-result` from `request.session.pluginResult`
-   and then deletes it. If there is no result, redirect to `/manage-prototype/plugins`.
+2. The child sends `change-start` over IPC and runs npm. It sends `change-end`
+   once the response showing the result has been sent, so the supervisor cannot
+   restart the process part way through rendering it.
+3. It renders `plugin-result` from the POST response, as it does today. The
+   process that ran the change knows what happened, so the result does not need
+   a new process or a redirect.
+4. The supervisor restarts on its own: npm writes `package-lock.json`, the
+   lockfile watcher asks for a restart, and the change hold defers it until
+   `change-end`. If npm failed and nothing changed, there is no restart.
+5. Requests made while the restart runs are buffered until the new process is
+   ready, so the user's next click simply waits.
 
 `change.js` no longer imports `supervisor.js` or calls `buildPrototype()`. Delete
 `rebuildAndRestart` and `isChangeRunning` (the supervisor's change hold replaces
 it). The IPC sends must do nothing when `process.send` is undefined (tests,
 production).
 
-Step 6 works because sessions survive restarts. `lib/middleware/session.js`
-uses a fixed secret and the file store. Keep it that way: a secret generated
-at startup would break this flow.
+The result page must not reload itself: the supervisor sends a livereload
+message after the restart, which on a page with a form could submit it again.
+Manage pages do not load the livereload script (only
+`manage-prototype/views/server-error.njk` and `plugin/assets/javascripts/kit.js`
+do), so this holds as long as the result page stays a manage page.
 
 **`lib/start.js`**
 
@@ -204,10 +200,9 @@ irrelevant.
 Do these in order. Keep `npm test` passing after each step, and commit after
 each.
 
-1. **Buffering proxy and restart header** in `lib/dev/proxy.js`, with unit
-   tests: a request while not ready waits and then succeeds; it times out with
-   a 503; a response with `x-protato-restart` calls a restart callback before
-   the response is sent, and the header is not passed on.
+1. **Buffering proxy** in `lib/dev/proxy.js`, with unit tests: a request while
+   not ready waits and then succeeds; it times out with a 503; a request whose
+   connection fails during a restart is sent again once the child is ready.
 2. **Child builds itself.** Move `buildPrototype()` into
    `prototype-server.js` startup, delete the IPC `buildResult`, add the
    per-request build-error switch and the `build-sass` message. The sass
@@ -215,10 +210,10 @@ each.
 3. **Change hold in the supervisor** (`change-start` / `change-end`), with
    unit tests showing that restarts asked for during a change run once after
    `change-end`.
-4. **Plugin flow to post/redirect/get** as above. Update
-   `tests/plugin-management.test.js`: install from the UI, follow the redirect,
-   check that the result page shows and that the plugin's assets are served
-   (proving the restart happened).
+4. **Plugin flow renders the result directly**, and a change ends once its
+   response has been sent. Update `tests/plugin-management.test.js`: install
+   from the UI, check that the result page shows and that the plugin's assets
+   are served (proving the restart happened).
 5. **Move livereload and the dev manage UI.** Livereload goes on the
    supervisor's plain http server. The manage UI moves into the prototype
    process as the single `manage-prototype/index.js` router. Delete
@@ -260,6 +255,7 @@ each.
 ## Open questions for the human
 
 - Should template preview stay a route in `lib/app.js`, or become a
-  manage-prototype route that renders with the prototype's env? Pick the
-  smaller diff and note why.
+  manage-prototype route that renders with the prototype's env? It stayed in
+  `lib/app.js` (handler in `manage-prototype/routes/templates.js`), because the
+  alternative needs `request.app.parent`'s Nunjucks env.
 - The buffer timeout (30s suggested) and the 503 wording.
