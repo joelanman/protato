@@ -114,6 +114,24 @@ const readForm = async (formPath) => {
 	return { html, token, cookie }
 }
 
+// Registry versions are fetched in the background by the prototype process, so
+// a page loaded just after a restart may not have them yet.
+async function waitForPluginsPageText(text) {
+	const timeout = Date.now() + TIMEOUT_MS / 3
+
+	while (Date.now() < timeout) {
+		const page = await readForm('/manage-prototype/plugins')
+
+		if (page.html.includes(text)) {
+			return page
+		}
+
+		await new Promise((resolve) => setTimeout(resolve, 250))
+	}
+
+	throw new Error(`The plugins page never showed: ${text}`)
+}
+
 const postChange = async (action, pluginPackageName) => {
 	const form = await readForm('/manage-prototype/plugins')
 
@@ -274,8 +292,7 @@ describe('plugin management end to end', () => {
 	it(
 		'offers the newer version and updates the plugin',
 		async () => {
-			const pluginsPage = await readForm('/manage-prototype/plugins')
-			expect(pluginsPage.html).toContain('update available')
+			const pluginsPage = await waitForPluginsPageText('update available')
 			expect(pluginsPage.html).toContain('(version 1.0.1 available)')
 
 			const result = await postChange('/update', updatePackageName)
