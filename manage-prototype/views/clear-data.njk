@@ -16,6 +16,7 @@
     }) }}
 
     <form method="post">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
         {{ govukButton({
             text: "Clear the data"
         }) }}

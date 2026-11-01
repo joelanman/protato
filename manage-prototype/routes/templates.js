@@ -6,6 +6,8 @@ import plugins from '../../lib/plugins.js'
 
 const router = express.Router()
 
+const templatePreviewPath = '/manage-prototype/templates/view'
+
 const invalidChars = "!$&'()*+,;=:?#[]@.% "
 
 // Returns the problem with the path, or nothing if it's usable
@@ -19,8 +21,21 @@ function getPathError(newPagePath) {
 	}
 }
 
-// Previews are rendered by the prototype app (see routes/preview.js), not here,
-// so the page looks like a real page
+// Template preview
+//
+// Registered by lib/app.js on the prototype app rather than on this router, so
+// the page renders with the same views, layouts, macros, filters and locals as
+// a real prototype page.
+function templatePreview(request, response, next) {
+	const { packageName, templatePath } = request.query
+	const filePath = plugins.getTemplateFilePath(packageName, templatePath)
+
+	if (!filePath) {
+		return next()
+	}
+
+	response.render(`${packageName}${templatePath}`)
+}
 
 // templates list
 router.get('/', (request, response) => {
@@ -118,4 +133,5 @@ router.get('/created', (request, response) => {
 	})
 })
 
+export { templatePreview, templatePreviewPath }
 export default router

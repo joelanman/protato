@@ -50,20 +50,34 @@ const readRender = (response) => {
 
 describe('plugin routes', () => {
 	let app
+	let session
 
 	beforeEach(() => {
 		vi.clearAllMocks()
 
 		registry.getPluginLists.mockReturnValue({ installedPlugins, availablePlugins })
 
+		// the result of a change goes in the session, which lasts across the
+		// restart the change causes
+		session = {}
+
 		app = express()
 		app.use(express.urlencoded({ extended: true }))
 		app.use((req, res, next) => {
 			res.render = (view, model) => res.send(`${view} ${JSON.stringify(model)}`)
+			req.session = session
+			req.session.save = (callback) => callback()
 			next()
 		})
 		app.use('/manage-prototype/plugins', pluginRoutes)
 	})
+
+	const readResult = async (post) => {
+		const response = await post()
+		const location = response.headers.location
+		const result = await request(app).get(location)
+		return { response, location, result: readRender(result) }
+	}
 
 	describe('GET /', () => {
 		it('renders the installed and available plugins', async () => {
@@ -183,22 +197,53 @@ describe('plugin routes', () => {
 		})
 	})
 
+	describe('GET /result', () => {
+		it('returns to the plugins page when there is no result', async () => {
+			const response = await request(app).get('/manage-prototype/plugins/result')
+
+			expect(response.status).toBe(303)
+			expect(response.headers.location).toBe('/manage-prototype/plugins')
+		})
+
+		it('shows the result once', async () => {
+			session.pluginResult = { outcome: 'installed', installedPackages: ['new-plugin'] }
+
+			await request(app).get('/manage-prototype/plugins/result')
+			const second = await request(app).get('/manage-prototype/plugins/result')
+
+			expect(second.headers.location).toBe('/manage-prototype/plugins')
+			expect(session.pluginResult).toBeUndefined()
+		})
+	})
+
 	describe('POST /install', () => {
-		it('installs the plugin and reports success', async () => {
+		const postInstall = () =>
+			request(app).post('/manage-prototype/plugins/install').type('form').send({ packageName: 'new-plugin' })
+
+		it('redirects to the result page and asks for a restart', async () => {
 			installPlugin.mockResolvedValue({
 				outcome: 'installed',
 				installedPackages: ['new-plugin', 'needed-plugin']
 			})
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'new-plugin' })
+			const response = await postInstall()
 
 			expect(installPlugin).toHaveBeenCalledWith('new-plugin')
-			const { view, model } = readRender(response)
-			expect(view).toBe('plugin-result')
-			expect(model).toEqual(
+			expect(response.status).toBe(303)
+			expect(response.headers.location).toBe('/manage-prototype/plugins/result')
+			expect(response.headers['x-protato-restart']).toBe('1')
+		})
+
+		it('shows the result on the result page', async () => {
+			installPlugin.mockResolvedValue({
+				outcome: 'installed',
+				installedPackages: ['new-plugin', 'needed-plugin']
+			})
+
+			const { result } = await readResult(postInstall)
+
+			expect(result.view).toBe('plugin-result')
+			expect(result.model).toEqual(
 				expect.objectContaining({
 					outcome: 'installed',
 					installedPackages: ['new-plugin', 'needed-plugin']
@@ -206,20 +251,17 @@ describe('plugin routes', () => {
 			)
 		})
 
-		it('reports npm failure', async () => {
+		it('reports npm failure without asking for a restart', async () => {
 			installPlugin.mockResolvedValue({
 				outcome: 'failed',
 				message: 'The plugin could not be installed.',
 				npmOutput: 'npm error 404 Not Found'
 			})
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'missing-plugin' })
+			const { response, result } = await readResult(postInstall)
 
-			const { model } = readRender(response)
-			expect(model).toEqual(
+			expect(response.headers['x-protato-restart']).toBeUndefined()
+			expect(result.model).toEqual(
 				expect.objectContaining({
 					outcome: 'failed',
 					message: 'The plugin could not be installed.',
@@ -231,37 +273,29 @@ describe('plugin routes', () => {
 		it('refuses a second change while one is running', async () => {
 			installPlugin.mockResolvedValue({ outcome: 'busy' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'new-plugin' })
+			const { response, result } = await readResult(postInstall)
 
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'busy' }))
+			expect(response.headers['x-protato-restart']).toBeUndefined()
+			expect(result.model).toEqual(expect.objectContaining({ outcome: 'busy' }))
 		})
 
 		it('shows a server-side refusal', async () => {
 			installPlugin.mockResolvedValue({ outcome: 'failed', message: 'Choose a valid npm package name.' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'plugin; rm -rf /' })
+			const { result } = await readResult(postInstall)
 
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'Choose a valid npm package name.' }))
+			expect(result.model).toEqual(
+				expect.objectContaining({ outcome: 'failed', message: 'Choose a valid npm package name.' })
+			)
 		})
 
 		it('reports that there is nothing to do when already installed', async () => {
 			installPlugin.mockResolvedValue({ outcome: 'noChange', message: 'asset-plugin is already installed.' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
+			const { response, result } = await readResult(postInstall)
 
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'noChange' }))
+			expect(response.headers['x-protato-restart']).toBeUndefined()
+			expect(result.model).toEqual(expect.objectContaining({ outcome: 'noChange' }))
 		})
 	})
 
@@ -278,8 +312,10 @@ describe('plugin routes', () => {
 				.send({ packageName: 'asset-plugin' })
 
 			expect(uninstallPlugin).toHaveBeenCalledWith('asset-plugin')
-			const { model } = readRender(response)
-			expect(model).toEqual(
+			expect(response.headers['x-protato-restart']).toBe('1')
+
+			const result = await request(app).get('/manage-prototype/plugins/result')
+			expect(readRender(result).model).toEqual(
 				expect.objectContaining({
 					outcome: 'uninstalled',
 					removedPackages: ['asset-plugin', 'dependent-plugin']
@@ -290,13 +326,12 @@ describe('plugin routes', () => {
 		it('shows the refusal for a protected plugin', async () => {
 			uninstallPlugin.mockResolvedValue({ outcome: 'failed', message: 'protato cannot be uninstalled.' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/uninstall')
-				.type('form')
-				.send({ packageName: 'protato' })
+			await request(app).post('/manage-prototype/plugins/uninstall').type('form').send({ packageName: 'protato' })
 
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'protato cannot be uninstalled.' }))
+			const result = await request(app).get('/manage-prototype/plugins/result')
+			expect(readRender(result).model).toEqual(
+				expect.objectContaining({ outcome: 'failed', message: 'protato cannot be uninstalled.' })
+			)
 		})
 	})
 
@@ -314,7 +349,10 @@ describe('plugin routes', () => {
 				.send({ packageName: 'asset-plugin' })
 
 			expect(updatePlugin).toHaveBeenCalledWith('asset-plugin')
-			const { view, model } = readRender(response)
+			expect(response.headers['x-protato-restart']).toBe('1')
+
+			const result = await request(app).get('/manage-prototype/plugins/result')
+			const { view, model } = readRender(result)
 			expect(view).toBe('plugin-result')
 			expect(model).toEqual(
 				expect.objectContaining({
@@ -328,13 +366,10 @@ describe('plugin routes', () => {
 		it('reports that there is nothing to do when already up to date', async () => {
 			updatePlugin.mockResolvedValue({ outcome: 'noChange', message: 'asset-plugin is already up to date.' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/update')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
+			await request(app).post('/manage-prototype/plugins/update').type('form').send({ packageName: 'asset-plugin' })
 
-			const { model } = readRender(response)
-			expect(model).toEqual(
+			const result = await request(app).get('/manage-prototype/plugins/result')
+			expect(readRender(result).model).toEqual(
 				expect.objectContaining({
 					outcome: 'noChange',
 					message: 'asset-plugin is already up to date.'
@@ -345,25 +380,21 @@ describe('plugin routes', () => {
 		it('refuses a second change while one is running', async () => {
 			updatePlugin.mockResolvedValue({ outcome: 'busy' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/update')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
+			await request(app).post('/manage-prototype/plugins/update').type('form').send({ packageName: 'asset-plugin' })
 
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'busy' }))
+			const result = await request(app).get('/manage-prototype/plugins/result')
+			expect(readRender(result).model).toEqual(expect.objectContaining({ outcome: 'busy' }))
 		})
 
 		it('reports a failed update', async () => {
 			updatePlugin.mockResolvedValue({ outcome: 'failed', message: 'The plugin could not be updated.' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/update')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
+			await request(app).post('/manage-prototype/plugins/update').type('form').send({ packageName: 'asset-plugin' })
 
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'The plugin could not be updated.' }))
+			const result = await request(app).get('/manage-prototype/plugins/result')
+			expect(readRender(result).model).toEqual(
+				expect.objectContaining({ outcome: 'failed', message: 'The plugin could not be updated.' })
+			)
 		})
 	})
 })

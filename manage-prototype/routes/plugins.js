@@ -54,42 +54,76 @@ router.post('/check-for-updates', async (request, response) => {
 	response.redirect(request.baseUrl)
 })
 
+// Outcomes that changed the installed plugins, so the prototype has to restart
+// to pick them up. A refusal or a change that did nothing leaves it running.
+const restartOutcomes = ['installed', 'uninstalled', 'updated']
+
+const resultPath = '/manage-prototype/plugins/result'
+
+// The supervisor restarts the prototype as soon as it sees this response, so the
+// session has to be on disk before that: the new process reads it to render the
+// result page.
+function saveSession(request) {
+	return new Promise((resolve, reject) => {
+		request.session.save((error) => {
+			if (error) {
+				reject(error)
+			} else {
+				resolve()
+			}
+		})
+	})
+}
+
+// The result is shown on a page of its own, so a reload or the back button does
+// not run the change again. The result goes in the session, which survives the
+// restart, and the header tells the supervisor to restart before the browser
+// follows the redirect, so the new process renders the result page.
+async function redirectToResult(request, response, result) {
+	request.session.pluginResult = result
+
+	await saveSession(request)
+
+	if (restartOutcomes.includes(result.outcome)) {
+		response.set('x-protato-restart', '1')
+	}
+
+	response.redirect(303, resultPath)
+}
+
 // Changes report their outcome on the result page instead of an HTTP status,
 // and check their own preconditions so a direct POST cannot bypass the UI.
 router.post('/install', async (request, response) => {
-	const result = await installPlugin(request.body.packageName)
-
-	response.render('plugin-result', {
-		pageName: 'Plugins',
-		outcome: result.outcome,
-		message: result.message,
-		npmOutput: result.npmOutput,
-		installedPackages: result.installedPackages
-	})
+	await redirectToResult(request, response, await installPlugin(request.body.packageName))
 })
 
 router.post('/uninstall', async (request, response) => {
-	const result = await uninstallPlugin(request.body.packageName)
-
-	response.render('plugin-result', {
-		pageName: 'Plugins',
-		outcome: result.outcome,
-		message: result.message,
-		npmOutput: result.npmOutput,
-		removedPackages: result.removedPackages
-	})
+	await redirectToResult(request, response, await uninstallPlugin(request.body.packageName))
 })
 
 router.post('/update', async (request, response) => {
-	const result = await updatePlugin(request.body.packageName)
+	await redirectToResult(request, response, await updatePlugin(request.body.packageName))
+})
+
+router.get('/result', (request, response) => {
+	const result = request.session.pluginResult
+
+	// read once, so going back to this page does not show a stale result
+	delete request.session.pluginResult
+
+	if (!result) {
+		response.redirect(303, '/manage-prototype/plugins')
+		return
+	}
 
 	response.render('plugin-result', {
 		pageName: 'Plugins',
 		outcome: result.outcome,
 		message: result.message,
 		npmOutput: result.npmOutput,
-		updatedPackage: result.packageName,
-		installedPackages: result.installedPackages
+		installedPackages: result.installedPackages,
+		removedPackages: result.removedPackages,
+		updatedPackage: result.packageName
 	})
 })
 

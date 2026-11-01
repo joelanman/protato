@@ -154,7 +154,12 @@ describe('Server', () => {
 			const response3 = await fetch(root + '/manage-prototype/clear-data')
 			expect(response3.status).toBe(200)
 
-			const response4 = await fetch(root + '/manage-prototype/clear-data', { method: 'POST' })
+			const clearDataPage = await getCsrf(root + '/manage-prototype/clear-data')
+			const response4 = await fetch(root + '/manage-prototype/clear-data', {
+				method: 'POST',
+				headers: { cookie: clearDataPage.cookie, 'content-type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ _csrf: clearDataPage.token })
+			})
 			expect(response4.status).toBe(200)
 
 			const response5 = await fetch(root + '/?page=1', { method: 'POST' })
@@ -215,18 +220,16 @@ describe('Server', () => {
 			expect(previewHtml).toContain('Service name goes here')
 			expect(previewHtml).toContain('href="/manage-prototype"')
 
-			// the preview URL is proxied, so this stands in for any POST under
-			// /manage-prototype that is not a manage route: the dev app must not
-			// consume the body or check a token. A consumed body used to hang
-			// the prototype server, which also broke the password page in dev.
+			// a POST under /manage-prototype needs a form token, even for a path
+			// that is not one of the manage pages
 			const previewPostResponse = await fetch(manageUrl('view'), {
 				method: 'POST',
 				headers: { 'content-type': 'application/x-www-form-urlencoded' },
 				body: new URLSearchParams({ example: 'value' }),
 				redirect: 'manual'
 			})
-			expect(previewPostResponse.status).toBe(302)
-			expect(new URL(previewPostResponse.headers.get('location'), root).href).toBe(manageUrl('view'))
+			expect(previewPostResponse.status).toBe(403)
+			expect(await previewPostResponse.text()).toContain('Your form has expired')
 
 			const unbrandedQuery = new URLSearchParams({
 				packageName,

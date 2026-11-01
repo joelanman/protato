@@ -51,7 +51,7 @@ const stopProcess = async (proc) => {
 	}
 }
 
-const get = (url) => fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
+const get = (url, options = {}) => fetch(root + url, { signal: AbortSignal.timeout(TIMEOUT_MS), ...options })
 
 // The dev server and the prototype server log to here, so a failure that only
 // happens on CI can be diagnosed from the log it prints.
@@ -106,7 +106,7 @@ const readPage = async (response) => {
 
 // Reads the CSRF token and cookie from a rendered form, the way a browser would
 const readForm = async (formPath) => {
-	const response = await get(root + formPath)
+	const response = await get(formPath)
 	const html = await response.text()
 	const token = /name="_csrf" value="([^"]+)"/.exec(html)?.[1]
 	const cookie = (response.headers.get('set-cookie') ?? '').split(';')[0]
@@ -132,11 +132,15 @@ async function waitForPluginsPageText(text) {
 	throw new Error(`The plugins page never showed: ${text}`)
 }
 
+// Posts the change, then follows the redirect the way a browser would. The
+// result goes in a session the POST creates, so the cookie it sets has to be
+// sent with the request that follows.
 const postChange = async (action, pluginPackageName) => {
 	const form = await readForm('/manage-prototype/plugins')
 
 	const response = await fetch(`${root}/manage-prototype/plugins${action}`, {
 		method: 'POST',
+		redirect: 'manual',
 		signal: AbortSignal.timeout(TIMEOUT_MS),
 		headers: {
 			'content-type': 'application/x-www-form-urlencoded',
@@ -145,7 +149,18 @@ const postChange = async (action, pluginPackageName) => {
 		body: new URLSearchParams({ _csrf: form.token, packageName: pluginPackageName })
 	})
 
-	return response.text()
+	const location = response.headers.get('location')
+
+	if (response.status !== 303 || location !== '/manage-prototype/plugins/result') {
+		throw new Error(`Expected a 303 to the result page, got ${response.status} ${location}: ${await response.text()}`)
+	}
+
+	const sessionCookie = response.headers
+		.getSetCookie()
+		.find((cookie) => cookie.startsWith('connect.sid='))
+		.split(';')[0]
+
+	return readPage(await get(location, { headers: { cookie: sessionCookie } }))
 }
 
 const readProjectPackage = () => JSON.parse(fs.readFileSync(path.join(project.dir, 'package.json'), 'utf8'))
@@ -266,9 +281,9 @@ describe('plugin management end to end', () => {
 			// the stylesheet is served and linked from the prototype's own pages, so
 			// the rebuild and restart picked the plugin up
 			const url = stylesheetUrl(installPackageName)
-			expect(await readPage(await get(root + url))).toContain(colour(1))
+			expect(await readPage(await get(url))).toContain(colour(1))
 
-			expect(await readPage(await get(root))).toContain(url)
+			expect(await readPage(await get('/'))).toContain(url)
 
 			// the link comes from the installed package.json
 			const pluginsPage = await readForm('/manage-prototype/plugins')
@@ -301,7 +316,7 @@ describe('plugin management end to end', () => {
 			expect(isInstalled(updatePackageName, '1.0.1')).toBe(true)
 
 			const url = stylesheetUrl(updatePackageName)
-			expect(await readPage(await get(root + url))).toContain(colour(3))
+			expect(await readPage(await get(url))).toContain(colour(3))
 		},
 		TIMEOUT_MS
 	)
@@ -314,7 +329,7 @@ describe('plugin management end to end', () => {
 			expect(result).toContain('Plugins uninstalled')
 			expect(readProjectPackage().dependencies[updatePackageName]).toBeUndefined()
 
-			expect(await readPage(await get(root))).not.toContain(stylesheetUrl(updatePackageName))
+			expect(await readPage(await get('/'))).not.toContain(stylesheetUrl(updatePackageName))
 		},
 		TIMEOUT_MS
 	)
