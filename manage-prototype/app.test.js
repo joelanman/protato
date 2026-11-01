@@ -123,7 +123,7 @@ describe('manage prototype app', () => {
 
 	// mounted the way the dev server and lib/app.js mount it, with the app's
 	// 404 and error pages
-	const createTestApp = async () => {
+	const createTestApp = async ({ env = 'development' } = {}) => {
 		const testApp = express()
 
 		// the parent app parses the body before manage prototype is mounted
@@ -133,7 +133,7 @@ describe('manage prototype app', () => {
 			next()
 		})
 
-		testApp.use('/manage-prototype', await getManagePrototypeApp())
+		testApp.use('/manage-prototype', await getManagePrototypeApp({ env }))
 		testApp.use(pageNotFound)
 		testApp.use(errorHandler)
 
@@ -153,9 +153,7 @@ describe('manage prototype app', () => {
 	})
 
 	it('serves only the pages that need the session in production', async () => {
-		vi.mocked(getConfig).mockReturnValue({ env: 'production', serviceName: 'Test Service', passwords: [] })
-
-		const productionApp = await createTestApp()
+		const productionApp = await createTestApp({ env: 'production' })
 
 		expect((await request(productionApp).get('/manage-prototype/templates')).status).toBe(404)
 		expect((await request(productionApp).get('/manage-prototype/plugins')).status).toBe(404)

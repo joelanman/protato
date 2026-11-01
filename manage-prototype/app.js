@@ -22,14 +22,12 @@
 
 import express from 'express'
 
-import { getConfig } from '../lib/config.js'
 import { getPaths } from '../lib/paths.js'
 import { csrf } from './csrf.js'
 import managePrototypeNunjucks from './nunjucks.js'
 import sessionRoutes from './routes/session.js'
 
-async function getManagePrototypeApp() {
-	const config = getConfig()
+async function getManagePrototypeApp({ env }) {
 	const paths = getPaths()
 	const app = express()
 
@@ -44,7 +42,7 @@ async function getManagePrototypeApp() {
 
 	app.use(sessionRoutes)
 
-	if (config.env === 'development') {
+	if (env === 'development') {
 		// imported here so production does not load the plugin manager
 		const { default: templateRoutes } = await import('./routes/templates.js')
 		const { default: pluginRoutes } = await import('./routes/plugins.js')
