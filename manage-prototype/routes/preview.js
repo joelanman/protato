@@ -1,9 +1,9 @@
 // Template preview
 //
-// Rendered by the prototype app (lib/app.js), not a manage app, so pages render
-// with the same views, layouts, macros, filters and locals as a real prototype
-// page. index.js adds this path to proxyPaths, which is how the dev server
-// knows to proxy it here.
+// Rendered by the prototype app (lib/app.js), not the manage app, so pages
+// render with the same views, layouts, macros, filters and locals as a real
+// prototype page. This is the one manage path the dev server proxies to the
+// prototype process.
 
 import plugins from '../../lib/plugins.js'
 
