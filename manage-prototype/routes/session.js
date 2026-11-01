@@ -1,5 +1,5 @@
 // The manage pages that need the prototype's session. Mounted by
-// manage-prototype/index.js in production and development.
+// manage-prototype/app.js in production and development.
 
 import express from 'express'
 

@@ -7,7 +7,7 @@ import { getConfig } from '../lib/config.js'
 import { installPlugin, uninstallPlugin, updatePlugin } from '../lib/manage-plugins/change.js'
 import * as registry from '../lib/manage-plugins/registry.js'
 import { errorHandler, pageNotFound } from '../lib/middleware/errors.js'
-import { getManagePrototypeApp } from './index.js'
+import { getManagePrototypeApp } from './app.js'
 
 const { packageName, template, templatesByPlugin, templateFilePath } = vi.hoisted(() => {
 	const packageName = '@govuk-prototype-kit/common-templates'
