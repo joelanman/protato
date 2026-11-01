@@ -94,15 +94,21 @@ async function redirectToResult(request, response, result) {
 // Changes report their outcome on the result page instead of an HTTP status,
 // and check their own preconditions so a direct POST cannot bypass the UI.
 router.post('/install', async (request, response) => {
-	await redirectToResult(request, response, await installPlugin(request.body.packageName))
+	const result = await installPlugin(request.body.packageName)
+
+	await redirectToResult(request, response, result)
 })
 
 router.post('/uninstall', async (request, response) => {
-	await redirectToResult(request, response, await uninstallPlugin(request.body.packageName))
+	const result = await uninstallPlugin(request.body.packageName)
+
+	await redirectToResult(request, response, result)
 })
 
 router.post('/update', async (request, response) => {
-	await redirectToResult(request, response, await updatePlugin(request.body.packageName))
+	const result = await updatePlugin(request.body.packageName)
+
+	await redirectToResult(request, response, result)
 })
 
 router.get('/result', (request, response) => {
