@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import fs from 'node:fs'
+import net from 'node:net'
 import path from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
@@ -370,6 +371,61 @@ describe('Server (commonjs prototype)', () => {
 	})
 })
 
+describe('Server (port in use)', () => {
+	let occupiedServer = null
+	let output = ''
+	let serverProcess = null
+	let testDir = null
+	const port = 3034
+	const fallbackPort = 3035
+	const root = 'http://localhost:' + fallbackPort
+
+	beforeAll(async () => {
+		testDir = path.join(__dirname, '../tmp/test-port-in-use')
+
+		fs.rmSync(testDir, { recursive: true, force: true })
+		copyStarter(testDir)
+
+		occupiedServer = net.createServer()
+		await new Promise((resolve) => occupiedServer.listen(port, resolve))
+	})
+
+	afterEach(async () => {
+		if (serverProcess) {
+			await stopProcess(serverProcess)
+			serverProcess = null
+		}
+	})
+
+	afterAll(async () => {
+		await new Promise((resolve) => occupiedServer.close(resolve))
+		fs.rmSync(testDir, { recursive: true, force: true })
+	})
+
+	it('starts on the next free port', async () => {
+		serverProcess = spawn('node', [cliFilePath, 'dev'], {
+			cwd: testDir,
+			stdio: 'pipe',
+			env: { ...process.env, PORT: String(port) }
+		})
+
+		serverProcess.stdout.on('data', (data) => {
+			output += data
+			process.stdout.write(data)
+		})
+		serverProcess.stderr.on('data', (data) => {
+			output += data
+			process.stderr.write(data)
+		})
+
+		await waitForServerReady(serverProcess, 'Running at ' + root)
+
+		expect(output).toContain('Port ' + port + ' is in use')
+		expect(output).toContain('Changed to port ' + fallbackPort)
+		expect((await fetch(root)).status).toBe(200)
+	})
+})
+
 describe('Server (error in user routes)', () => {
 	let serverProcess = null
 	let testDir = null
@@ -478,8 +534,12 @@ async function waitForServerReady(process, readyMessage) {
 
 		const onError = (data) => {
 			const error = data.toString()
-			// Sass deprecation warnings are not startup failures
-			if (!error.includes('connect.session() MemoryStore') && !error.includes('WARNING:')) {
+			// Sass deprecation warnings and a port change are not startup failures
+			if (
+				!error.includes('connect.session() MemoryStore') &&
+				!error.includes('WARNING:') &&
+				!error.includes('is in use - you may have another prototype running.')
+			) {
 				reject(new Error(`Server startup failed: ${error}`))
 				process.stdout.off('data', onData)
 				process.stderr.off('data', onError)

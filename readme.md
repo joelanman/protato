@@ -23,6 +23,11 @@ Run `npm link` to be able to run the `protato` command.
 
 Run `npm run dev`.
 
+The port comes from the `PORT` environment variable, then `app/config.json`,
+and defaults to 3000. If it is in use, Protato offers to use the next free port.
+In development the prototype itself runs on a second port 10 above the browser
+port, so the dev server can keep proxying during restarts.
+
 ## Plugins
 
 In development, plugins can be installed, updated and uninstalled from
