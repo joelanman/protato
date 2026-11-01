@@ -131,6 +131,14 @@ describe('Server', () => {
 			expect(response.status).toBe(500)
 		})
 
+		it('allows access without a password when USE_AUTH is false', async () => {
+			await startServer({ args: ['start'], env: { USE_AUTH: 'false' } })
+
+			const response = await fetch(root, { headers: httpsHeaders })
+
+			expect(response.status).toBe(200)
+		})
+
 		it('redirects to password page without dead management links', async () => {
 			console.log('prod test')
 			await startServer({ args: ['start'], env: { PASSWORD: 'test' } })
