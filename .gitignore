@@ -4,3 +4,4 @@ node_modules
 starter/.tmp
 todo.md
 tmp
+.env

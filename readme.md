@@ -23,6 +23,12 @@ Run `npm link` to be able to run the `protato` command.
 
 Run `npm run dev`.
 
+While working on Protato itself, put `PROTATO_DEV=true` in a `.env` file at the
+repo root. Protato reads the package's own `.env` as well as the project's, and
+`PROTATO_DEV` makes the manage prototype templates re-read on every render, so
+edits to them show up without a restart. A project using Protato caches those
+templates. The root `.env` is ignored by git and is not published.
+
 The port comes from the `PORT` environment variable, then `app/config.json`,
 and defaults to 3000. If it is in use, Protato offers to use the next free port.
 In development the prototype itself runs on a second port 10 above the browser

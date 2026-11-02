@@ -25,7 +25,7 @@
 	"license": "ISC",
 	"dependencies": {
 		"body-parser": "^2.4.0",
-		"chokidar": "4.0.3",
+		"chokidar": "^6.0.0",
 		"commander": "14.0.0",
 		"cookie-parser": "^1.4.7",
 		"cross-spawn": "^7.0.6",
@@ -45,8 +45,6 @@
 		"vitest": "5.0.3"
 	},
 	"overrides": {
-		"nunjucks": {
-			"chokidar": "4.0.3"
-		}
+		"chokidar": "$chokidar"
 	}
 }
