@@ -20,23 +20,29 @@
           {% endif %}
         </h2>
 
-        <ul class="govuk-list govuk-prototype-kit-manage-prototype-template-list-template-list">
+        <dl class="govuk-summary-list">
           {% for template in plugin.templates %}
-            <li class="govuk-prototype-kit-manage-prototype-template-list-template-list__item">
-              <div class="govuk-prototype-kit-manage-prototype-template-list-template-list__item-name">
-                {{ template.name }}
-              </div>
-              <div class="govuk-prototype-kit-manage-prototype-template-list-template-list__item-links">
-                <a class="govuk-prototype-kit-manage-prototype-template-list-template-list__item-link"
-                   href="/manage-prototype/templates/view?packageName={{ plugin.packageName | urlencode }}&amp;templatePath={{ template.path | urlencode }}">
-                  View<span class="govuk-visually-hidden"> {{ template.name }}</span></a>
-                <a class="govuk-prototype-kit-manage-prototype-template-list-template-list__item-link"
-                   href="/manage-prototype/templates/create?packageName={{ plugin.packageName | urlencode }}&amp;templatePath={{ template.path | urlencode }}">
-                  Create<span class="govuk-visually-hidden"> {{ template.name }}</span></a>
-              </div>
-            </li>
+            <div class="govuk-summary-list__row">
+              <dt class="govuk-summary-list__key">{{ template.name }}</dt>
+
+              <dd class="govuk-summary-list__actions">
+                <ul class="govuk-summary-list__actions-list">
+                  <li class="govuk-summary-list__actions-list-item">
+                    <a class="govuk-link" href="/manage-prototype/templates/view?packageName={{ plugin.packageName | urlencode }}&amp;templatePath={{ template.path | urlencode }}">
+                      View<span class="govuk-visually-hidden"> {{ template.name }}</span>
+                    </a>
+                  </li>
+                  <li class="govuk-summary-list__actions-list-item">
+                    <a class="govuk-link" href="/manage-prototype/templates/create?packageName={{ plugin.packageName | urlencode }}&amp;templatePath={{ template.path | urlencode }}">
+                      Create<span class="govuk-visually-hidden"> {{ template.name }}</span>
+                    </a>
+                  </li>
+                </ul>
+              </dd>
+            </div>
           {% endfor %}
-        </ul>
+        </dl>
+
       {% endfor %}
     </div>
   </div>
