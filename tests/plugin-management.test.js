@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process'
-import { once } from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -7,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createLocalRegistry, createPluginTarball } from './helpers/local-registry.js'
 import { runNpm } from './helpers/npm.js'
 import { createPluginProject } from './helpers/plugin-project.js'
+import { stopProcess } from './helpers/process.js'
 
 // Installs, updates and uninstalls a plugin through the manage UI, with real
 // npm, a real rebuild and a real restart. The plugin comes from a local
@@ -37,19 +37,6 @@ let project
 let registry
 let serverProcess
 let tarballs = []
-
-const stopProcess = async (proc) => {
-	if (proc?.exitCode === null && proc?.signalCode === null) {
-		proc.kill('SIGTERM')
-		const forceKillTimeout = setTimeout(() => proc.kill('SIGKILL'), 2000)
-
-		try {
-			await once(proc, 'exit')
-		} finally {
-			clearTimeout(forceKillTimeout)
-		}
-	}
-}
 
 const get = (url) => fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) })
 

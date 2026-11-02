@@ -1,0 +1,24 @@
+{% extends "layouts/main.html" %}
+
+{% block content %}
+  <h1 class="govuk-heading-l">Tabs</h1>
+
+  {{ govukTabs({
+    items: [
+      {
+        label: "Past day",
+        id: "past-day",
+        panel: {
+          html: "<p>Past day panel</p>"
+        }
+      },
+      {
+        label: "Past week",
+        id: "past-week",
+        panel: {
+          html: "<p>Past week panel</p>"
+        }
+      }
+    ]
+  }) }}
+{% endblock %}

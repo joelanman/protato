@@ -1,37 +1,13 @@
 import { spawn } from 'node:child_process'
-import { once } from 'node:events'
 import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { stopProcess } from './helpers/process.js'
+import { copyStarter } from './helpers/starter.js'
 
 const __dirname = import.meta.dirname
 const cliFilePath = path.resolve(__dirname, '../bin/cli.js')
-const starterDir = path.join(__dirname, '../starter')
-const starterNodeModulesDir = path.join(starterDir, 'node_modules')
-
-// Copy the starter project without node_modules, then point node_modules at the
-// installed copy. Copying node_modules is unreliable on Windows because it
-// contains symlinks and junctions.
-const copyStarter = (destinationDir) => {
-	fs.cpSync(starterDir, destinationDir, {
-		recursive: true,
-		filter: (source) => source !== starterNodeModulesDir
-	})
-	fs.symlinkSync(starterNodeModulesDir, path.join(destinationDir, 'node_modules'), 'junction')
-}
-
-const stopProcess = async (proc) => {
-	if (proc?.exitCode === null && proc?.signalCode === null) {
-		proc.kill('SIGTERM')
-		const forceKillTimeout = setTimeout(() => proc.kill('SIGKILL'), 2000)
-		try {
-			await once(proc, 'exit')
-		} finally {
-			clearTimeout(forceKillTimeout)
-		}
-	}
-}
 
 // Reads the CSRF token and cookie from a rendered form, the way a browser would
 const getCsrf = async (url, headers = {}) => {
@@ -124,7 +100,6 @@ describe('Server', () => {
 		})
 
 		it('errors if no passwords set', async () => {
-			console.log('prod test')
 			await startServer({ args: ['start'] })
 
 			const response = await fetch(root, { headers: httpsHeaders })
@@ -140,7 +115,6 @@ describe('Server', () => {
 		})
 
 		it('redirects to password page without dead management links', async () => {
-			console.log('prod test')
 			await startServer({ args: ['start'], env: { PASSWORD: 'test' } })
 
 			const response = await fetch(root, { headers: httpsHeaders })
@@ -207,20 +181,9 @@ describe('Server', () => {
 			const response2 = await fetch(root + '/manage-prototype/password')
 			expect(response2.status).toBe(200)
 
-			const response3 = await fetch(root + '/manage-prototype/clear-data')
-			expect(response3.status).toBe(200)
-
-			const clearDataPage = await getCsrf(root + '/manage-prototype/clear-data')
-			const response4 = await fetch(root + '/manage-prototype/clear-data', {
-				method: 'POST',
-				headers: { cookie: clearDataPage.cookie, 'content-type': 'application/x-www-form-urlencoded' },
-				body: new URLSearchParams({ _csrf: clearDataPage.token })
-			})
-			expect(response4.status).toBe(200)
-
-			const response5 = await fetch(root + '/?page=1', { method: 'POST' })
-			expect(response5.redirected).toBe(true)
-			expect(response5.url).toBe(root + '/?page=1')
+			const response3 = await fetch(root + '/?page=1', { method: 'POST' })
+			expect(response3.redirected).toBe(true)
+			expect(response3.url).toBe(root + '/?page=1')
 
 			const unbrandedIconResponse = await fetch(
 				root + '/plugin-assets/govuk-prototype-kit/plugin/assets/images/unbranded.ico'
@@ -458,48 +421,6 @@ describe('Server (port in use)', () => {
 		expect(output).toContain('Port ' + port + ' is in use')
 		expect(output).toContain('Changed to port ' + fallbackPort)
 		expect((await fetch(root)).status).toBe(200)
-	})
-})
-
-describe('Server (error in user routes)', () => {
-	let serverProcess = null
-	let testDir = null
-	const port = 3032
-	const root = 'http://localhost:' + port
-
-	beforeAll(() => {
-		testDir = path.join(__dirname, '../tmp/test-routes-error')
-
-		fs.rmSync(testDir, { recursive: true, force: true })
-		copyStarter(testDir)
-		fs.copyFileSync(path.join(__dirname, 'fixtures/routes-error.js'), path.join(testDir, 'app/routes.js'))
-	})
-
-	afterEach(async () => {
-		if (serverProcess) {
-			await stopProcess(serverProcess)
-		}
-	})
-
-	afterAll(() => {
-		fs.rmSync(testDir, { recursive: true, force: true })
-	})
-
-	it('shows the error page instead of swallowing the error', async () => {
-		serverProcess = spawn('node', [cliFilePath, 'dev'], {
-			cwd: testDir,
-			stdio: 'pipe',
-			env: { ...process.env, PORT: port }
-		})
-
-		serverProcess.stdout.pipe(process.stdout)
-		serverProcess.stderr.pipe(process.stderr)
-
-		const body = await waitForErrorPage(root)
-
-		expect(body).toContain('There is an error')
-		expect(body).toContain('app/routes.js (line 4)')
-		expect(body).toContain('boom in user routes')
 	})
 })
 

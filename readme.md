@@ -34,6 +34,20 @@ and defaults to 3000. If it is in use, Protato offers to use the next free port.
 In development the prototype itself runs on a second port 10 above the browser
 port, so the dev server can keep proxying during restarts.
 
+## Tests
+
+Run `npm test` for the unit, end-to-end and lint suite.
+
+Browser tests need Chromium, installed once with:
+
+```sh
+npx playwright install chromium
+```
+
+Then run `npm run test:browser`. Use `npm run test:browser:headed` to watch the
+browser, or `npm run test:browser:ui` for Playwright's interactive runner. Run
+`npm run test:all` to run the unit, end-to-end, lint and browser tests together.
+
 ## Plugins
 
 In development, plugins can be installed, updated and uninstalled from

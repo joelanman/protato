@@ -11,12 +11,17 @@
 	"scripts": {
 		"build": "node manage-prototype/build.js",
 		"build:manage": "node manage-prototype/build.js",
+		"compare:loc": "node scripts/compare-lines-of-code.js",
 		"dev": "cd starter && npm run dev",
 		"install:starter": "node scripts/install-starter.js",
 		"start": "cd starter && npm start",
+		"test:browser": "playwright test",
+		"test:browser:headed": "playwright test --headed",
+		"test:browser:ui": "playwright test --ui",
 		"lint": "npx @biomejs/biome check",
 		"lint:fix": "npx @biomejs/biome check --write",
 		"test": "npm run test:unit && npm run test:end && npm run lint",
+		"test:all": "npm test && npm run test:browser",
 		"test:unit": "npx vitest run --config vitest.unit.config.js",
 		"test:end": "npx vitest run --config vitest.end.config.js",
 		"test:coverage": "npx vitest run --config vitest.unit.config.js --coverage"
@@ -40,6 +45,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.15",
+		"@playwright/test": "^1.64.1",
 		"@vitest/coverage-v8": "5.0.3",
 		"supertest": "7.3.1",
 		"vitest": "5.0.3"

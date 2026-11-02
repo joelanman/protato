@@ -5,3 +5,5 @@ starter/.tmp
 todo.md
 tmp
 .env
+playwright-report
+test-results

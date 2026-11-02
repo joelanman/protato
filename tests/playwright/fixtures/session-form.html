@@ -1,0 +1,22 @@
+{% extends "layouts/main.html" %}
+
+{% block content %}
+
+  <h1 class="govuk-heading-l">Session form</h1>
+
+  <form method="post">
+    <div class="govuk-form-group">
+      <label class="govuk-label" for="your-name">Your name</label>
+      <input class="govuk-input" id="your-name" name="yourName" type="text">
+    </div>
+
+    <button class="govuk-button" data-module="govuk-button" type="submit">Continue</button>
+  </form>
+
+  {% if data.yourName %}
+    <p class="govuk-body" id="stored-name">Stored name: {{ data.yourName }}</p>
+  {% else %}
+    <p class="govuk-body" id="stored-name">No name stored</p>
+  {% endif %}
+
+{% endblock %}
