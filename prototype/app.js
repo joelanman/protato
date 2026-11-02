@@ -6,16 +6,16 @@ import express from 'express'
 import nunjucks from 'nunjucks'
 
 import protato from '../index.js'
+import { getConfig } from '../lib/config.js'
+import { checkAuth } from '../lib/middleware/auth.js'
+import { addHttpsMiddleware } from '../lib/middleware/https.js'
+import session from '../lib/middleware/session.js'
+import { getPaths } from '../lib/paths.js'
+import plugins from '../lib/plugins.js'
 import { getManagePrototypeApp } from '../manage-prototype/app.js'
 import { errorHandler, pageNotFound } from '../manage-prototype/errors.js'
-import templatePreview, { templatePreviewPath } from '../manage-prototype/routes/preview.js'
-import { getConfig } from './config.js'
-import { checkAuth } from './middleware/auth.js'
 import autoRenderView from './middleware/auto-render-view.js'
-import { addHttpsMiddleware } from './middleware/https.js'
-import session from './middleware/session.js'
-import { getPaths } from './paths.js'
-import plugins from './plugins.js'
+import templatePreview, { templatePreviewPath } from './preview.js'
 
 // user and plugin files register filters/functions/routes as a side effect
 async function importFiles(filePaths) {

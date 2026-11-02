@@ -17,7 +17,7 @@
 // so production never loads the plugin manager.
 //
 // Template previews are not here: they render with the prototype's own views,
-// layouts, macros and filters, so lib/app.js registers that route and the dev
+// layouts, macros and filters, so prototype/app.js registers that route and the dev
 // server proxies its one path to the prototype process.
 
 import express from 'express'

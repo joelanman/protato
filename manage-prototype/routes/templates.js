@@ -19,7 +19,7 @@ function getPathError(newPagePath) {
 	}
 }
 
-// Previews are rendered by the prototype app (see routes/preview.js), not here,
+// Previews are rendered by the prototype app (see prototype/preview.js), not here,
 // so the page looks like a real page
 
 // templates list

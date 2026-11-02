@@ -119,7 +119,7 @@ form does.
 
 ### Serving
 
-`app.use('/uploads', …)` in `lib/app.js`, mounted after `checkAuth` so uploads
+`app.use('/uploads', …)` in `prototype/app.js`, mounted after `checkAuth` so uploads
 inherit the prototype password, next to the existing static mounts.
 
 ### Limits

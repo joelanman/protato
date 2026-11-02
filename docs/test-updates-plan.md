@@ -85,7 +85,7 @@ The fixture plugin should declare `nunjucksPaths`, `nunjucksFilters`,
 Why Vitest rather than Playwright:
 
 - The contract is HTML, not browser behaviour.
-- It exercises the real wiring between `lib/app.js`, `lib/plugins.js`, Nunjucks
+- It exercises the real wiring between `prototype/app.js`, `lib/plugins.js`, Nunjucks
   and dynamic imports.
 - It is faster and easier to diagnose than a browser test.
 - The browser adds no useful signal for a filter returning `<strong>abc</strong>`.

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { getPaths } from '../paths.js'
+import { getPaths } from '../../lib/paths.js'
 
 // Only pages in the project's app/views are auto-rendered. Other view roots
 // (plugins, node_modules) are for includes, extends and template previews.

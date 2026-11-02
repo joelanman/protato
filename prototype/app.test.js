@@ -2,10 +2,10 @@ import path from 'node:path'
 import nunjucks from 'nunjucks'
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getConfig } from '../lib/config.js'
+import { checkAuth } from '../lib/middleware/auth.js'
 import { getManagePrototypeApp } from '../manage-prototype/app.js'
 import getApp from './app.js'
-import { getConfig } from './config.js'
-import { checkAuth } from './middleware/auth.js'
 
 vi.mock('nunjucks', () => ({
 	default: {
@@ -20,7 +20,7 @@ vi.mock('node:fs', () => ({
 	}
 }))
 
-vi.mock('./config.js', () => ({
+vi.mock('../lib/config.js', () => ({
 	getConfig: vi.fn(() => ({
 		port: 3000,
 		serviceName: 'Test Service',
@@ -28,7 +28,7 @@ vi.mock('./config.js', () => ({
 	}))
 }))
 
-vi.mock('./middleware/auth.js', () => ({
+vi.mock('../lib/middleware/auth.js', () => ({
 	checkAuth: vi.fn((request, response, next) => next())
 }))
 
@@ -43,12 +43,12 @@ vi.mock('../manage-prototype/app.js', async () => {
 	}
 })
 
-vi.mock('../manage-prototype/routes/preview.js', () => ({
+vi.mock('./preview.js', () => ({
 	default: (req, res) => res.send('template preview'),
 	templatePreviewPath: '/manage-prototype/templates/view'
 }))
 
-vi.mock('./middleware/session.js', () => ({
+vi.mock('../lib/middleware/session.js', () => ({
 	default: {
 		addSessionMiddleware: vi.fn(async () => {}),
 		init: vi.fn(),
@@ -56,14 +56,14 @@ vi.mock('./middleware/session.js', () => ({
 	}
 }))
 
-vi.mock('./paths.js', async (importOriginal) => {
+vi.mock('../lib/paths.js', async (importOriginal) => {
 	const actual = await importOriginal()
 
 	// app.js adds the project's node_modules as a dev-only view root
 	return { getPaths: vi.fn(() => actual.getPaths('/project', '/protato')) }
 })
 
-vi.mock('./plugins.js', () => ({
+vi.mock('../lib/plugins.js', () => ({
 	default: {
 		getScriptPaths: vi.fn(() => ['/script1.js', '/script2.js']),
 		getStylesheetPaths: vi.fn(() => ['/plugin-assets/plugin/style.css']),

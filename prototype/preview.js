@@ -1,11 +1,11 @@
 // Template preview
 //
-// Rendered by the prototype app (lib/app.js), not the manage app, so pages
+// Rendered by the prototype app (prototype/app.js), not the manage app, so pages
 // render with the same views, layouts, macros, filters and locals as a real
 // prototype page. This is the one manage path the dev server proxies to the
 // prototype process.
 
-import plugins from '../../lib/plugins.js'
+import plugins from '../lib/plugins.js'
 
 const templatePreviewPath = '/manage-prototype/templates/view'
 

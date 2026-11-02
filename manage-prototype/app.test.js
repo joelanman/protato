@@ -120,7 +120,7 @@ const createUrl = `/manage-prototype/templates/create?packageName=${encodeURICom
 describe('manage prototype app', () => {
 	let app
 
-	// mounted the way the dev server and lib/app.js mount it
+	// mounted the way the dev server and prototype/app.js mount it
 	const createTestApp = async ({ env = 'development' } = {}) => {
 		const testApp = express()
 

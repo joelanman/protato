@@ -2,6 +2,23 @@
 
 A quick and easy prototype kit.
 
+## Structure
+
+Two app runtimes, plus a shared core:
+
+- `prototype/` defines the user's prototype app: its Express configuration,
+  auto-rendered pages and template preview. The prototype's own views and assets
+  live in the user's project.
+- `manage-prototype/` serves the manage UI at `/manage-prototype`: its own
+  Express app, views, routes, CSRF handling and assets.
+- `lib/` is the shared core and server layer: config, paths, plugins, ports,
+  middleware, the asset build, the servers and process orchestration, and
+  plugin management.
+
+Other folders: `plugin/` is the built-in plugin content served into prototypes,
+`data/` holds static JSON resources, `starter/` is a base project, and `bin/`
+and `scripts/` are the CLI and tooling.
+
 ## Developing
 
 Requires Node.

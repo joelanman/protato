@@ -9,7 +9,7 @@ vi.mock('node:fs', () => ({
 
 const viewsDir = path.resolve('/app/views')
 
-vi.mock('../paths.js', () => ({
+vi.mock('../../lib/paths.js', () => ({
 	getPaths: () => ({
 		views: viewsDir
 	})

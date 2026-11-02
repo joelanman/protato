@@ -15,7 +15,7 @@ HMRC Frontend or the Ministry of Justice Frontend.
 What is baked in is the **GOV.UK base layout plugin** and a handful of
 GOV.UK-specific assumptions in the core:
 
-1. The `govukFrontend` Nunjucks local in `lib/app.js`.
+1. The `govukFrontend` Nunjucks local in `prototype/app.js`.
 2. The `$govuk-*` Sass variables in `lib/build.js`.
 3. The `unbranded.css` generation in `lib/build.js`.
 4. The forced `govuk-frontend` plugin order in `lib/plugins.js`.
@@ -35,7 +35,7 @@ prototype server, but no GOV.UK layout or styling.
 
 | Concern | Current location |
 | --- | --- |
-| `govukFrontend.assetPath` local, including `rebrand` | `lib/app.js` |
+| `govukFrontend.assetPath` local, including `rebrand` | `prototype/app.js` |
 | `$govuk-extensions-url-context`, `$govuk-plugins-url-context`, `$govuk-prototype-kit-major-version` | `lib/build.js` |
 | `unbranded.css` created by replacing the GDS Transport font and adding a background rule | `lib/build.js` |
 | `govuk-frontend` always loads before other plugins | `lib/plugins.js` |
@@ -235,7 +235,7 @@ protato.views.addFunction('govukFrontend', {
 })
 ```
 
-`lib/app.js` would then stop setting the `govukFrontend` local.
+`prototype/app.js` would then stop setting the `govukFrontend` local.
 
 GOV.UK Frontend 6 no longer ships the `assets/rebrand` folder or the old
 `functions.js`. Keep the small rebrand check anyway. It costs little, keeps
@@ -249,7 +249,7 @@ exist on the Express app object. Update the app tests to match.
 
 ## Core changes
 
-### `lib/app.js`
+### `prototype/app.js`
 
 - Remove the `govukFrontend` local.
 - Remove the `rebrand` config read.
@@ -454,7 +454,7 @@ This makes the layouts optional without changing build behaviour.
 
 - Add `protato.config.get()`.
 - Move the `govukFrontend.assetPath` setup into the plugin's `functions.js`.
-- Remove the local from `lib/app.js`.
+- Remove the local from `prototype/app.js`.
 
 ### Phase 3: generalise Sass
 

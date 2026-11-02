@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import plugins from '../../lib/plugins.js'
+import plugins from '../lib/plugins.js'
 import templatePreview from './preview.js'
 
-vi.mock('../../lib/plugins.js', () => ({
+vi.mock('../lib/plugins.js', () => ({
 	default: {
 		getTemplateFilePath: vi.fn()
 	}
