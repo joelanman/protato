@@ -51,8 +51,8 @@ browser, or `npm run test:browser:ui` for Playwright's interactive runner. Run
 ## Plugins
 
 In development, plugins can be installed, updated and uninstalled from
-`/manage-prototype/plugins`. `known-plugins.json` uses the GOV.UK Prototype Kit
-format: `plugins.available` lists the packages Protato suggests, and
+`/manage-prototype/plugins`. `data/known-plugins.json` uses the GOV.UK Prototype
+Kit format: `plugins.available` lists the packages Protato suggests, and
 `plugins.required` lists packages that cannot be uninstalled. Installing,
 updating or uninstalling runs npm in the project, then rebuilds and restarts the
 prototype.
@@ -70,7 +70,8 @@ plugins page.
 
 Some npm packages are used as plugins but do not ship a
 `govuk-prototype-kit.config.json`. Protato supplies proxy configs for
-`accessible-autocomplete`, `jquery` and `notifications-node-client`.
+`accessible-autocomplete`, `jquery` and `notifications-node-client` in
+`data/plugin-proxy.json`.
 
 A proxy config is only used when the package does not have its own
 `govuk-prototype-kit.config.json`. It cannot override a config supplied by the
@@ -82,8 +83,9 @@ stay current without a Protato release and do not change when a plugin is
 installed.
 
 To add a proxy config for another package, create `app/plugin-proxy.json` in the
-project. Each key is a package name and each value is the plugin config to use.
-Paths are relative to the package directory and start with `/`:
+project. It takes the same format as Protato's own file: each key is a package
+name and each value is the plugin config to use. Paths are relative to the
+package directory and start with `/`:
 
 ```json
 {
@@ -95,6 +97,6 @@ Paths are relative to the package directory and start with `/`:
 }
 ```
 
-Entries in `app/plugin-proxy.json` override Protato's built-in proxy configs for
-the same package. If the file contains invalid JSON, Protato warns once and
-continues with the built-in configs.
+Entries in `app/plugin-proxy.json` override Protato's own proxy configs for the
+same package. If the file contains invalid JSON, Protato warns once and
+continues with its own configs.

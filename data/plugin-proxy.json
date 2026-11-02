@@ -1,0 +1,12 @@
+{
+	"accessible-autocomplete": {
+		"scripts": ["/dist/accessible-autocomplete.min.js"],
+		"stylesheets": ["/dist/accessible-autocomplete.min.css"],
+		"assets": ["/dist"]
+	},
+	"jquery": {
+		"scripts": ["/dist/jquery.js"],
+		"assets": ["/dist"]
+	},
+	"notifications-node-client": {}
+}
