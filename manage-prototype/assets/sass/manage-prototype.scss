@@ -1,6 +1,7 @@
-$govuk-new-typography-scale: true;
 $govuk-assets-path: "/manage-prototype/govuk-frontend/dist/govuk/assets/";
+$govuk-font-family: helvetica, arial, sans-serif;
 $govuk-global-styles: true;
+
 
 // Import GOV.UK Frontend within the kit dependency
 @import "dist/govuk/index.scss";
