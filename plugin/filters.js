@@ -1,5 +1,6 @@
 // normally you would import protato, but we are inside protato here
 import protato from '../index.js'
+import { toArray } from '../lib/utils/array.js'
 
 const views = protato.views
 
@@ -42,8 +43,8 @@ views.addFilter(
 	 *   items: ["Rubble", "Oil", "Card"] | formatItems
 	 * }) }}
 	 * ```
-	 * @param  {string[]} items - an array of strings.
+	 * @param  {string|string[]} items - an array of strings, or a single string.
 	 * @returns {{ text: string, value: string }[]} an array of objects with text and value properties.
 	 */
-	(items = []) => (Array.isArray(items) ? items.map((item) => ({ text: item, value: item })) : [])
+	(items) => toArray(items).map((item) => ({ text: item, value: item }))
 )

@@ -98,5 +98,5 @@ package directory and start with `/`:
 ```
 
 Entries in `app/plugin-proxy.json` override Protato's own proxy configs for the
-same package. If the file contains invalid JSON, Protato warns once and
-continues with its own configs.
+same package. If the file contains invalid JSON, Protato warns and continues
+with its own configs.
