@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getConfig } from '../lib/config.js'
 import { installPlugin, uninstallPlugin, updatePlugin } from '../lib/manage-plugins/change.js'
 import * as registry from '../lib/manage-plugins/registry.js'
-import { errorHandler, pageNotFound } from '../lib/middleware/errors.js'
 import { getManagePrototypeApp } from './app.js'
 
 const { packageName, template, templatesByPlugin, templateFilePath } = vi.hoisted(() => {
@@ -121,8 +120,7 @@ const createUrl = `/manage-prototype/templates/create?packageName=${encodeURICom
 describe('manage prototype app', () => {
 	let app
 
-	// mounted the way the dev server and lib/app.js mount it, with the app's
-	// 404 and error pages
+	// mounted the way the dev server and lib/app.js mount it
 	const createTestApp = async ({ env = 'development' } = {}) => {
 		const testApp = express()
 
@@ -134,8 +132,6 @@ describe('manage prototype app', () => {
 		})
 
 		testApp.use('/manage-prototype', await getManagePrototypeApp({ env }))
-		testApp.use(pageNotFound)
-		testApp.use(errorHandler)
 
 		return testApp
 	}

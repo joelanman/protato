@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import managePrototypeNunjucks from '../../manage-prototype/nunjucks.js'
 import { errorHandler, renderErrorPage } from './errors.js'
+import managePrototypeNunjucks from './nunjucks.js'
 
-vi.mock('../../manage-prototype/nunjucks.js', () => ({
+vi.mock('./nunjucks.js', () => ({
 	default: {
 		render: vi.fn((view) => `rendered ${view}`)
 	}
 }))
 
-vi.mock('../utils/error-model.js', () => ({
+vi.mock('./error-model.js', () => ({
 	getErrorModel: vi.fn((error) => ({ error: { message: error.message } }))
 }))
 

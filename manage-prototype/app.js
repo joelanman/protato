@@ -24,6 +24,7 @@ import express from 'express'
 
 import { getPaths } from '../lib/paths.js'
 import { csrf } from './csrf.js'
+import { errorHandler, pageNotFound } from './errors.js'
 import managePrototypeNunjucks from './nunjucks.js'
 import sessionRoutes from './routes/session.js'
 
@@ -54,6 +55,9 @@ async function getManagePrototypeApp({ env }) {
 		app.use('/templates', templateRoutes)
 		app.use('/plugins', pluginRoutes)
 	}
+
+	app.use(pageNotFound)
+	app.use(errorHandler)
 
 	return app
 }
