@@ -213,6 +213,33 @@ describe('Server', () => {
 			expect(notFoundHtml).not.toContain('Template render error')
 		})
 
+		it('stores nested form data in the session', async () => {
+			fs.writeFileSync(
+				path.join(testDir, 'app/views/nested-form-test.html'),
+				'{{ data.address.line1 }}|{{ data.address.town }}'
+			)
+
+			// bracket notation is the only part of body parsing that needs extended: true
+			const postResponse = await fetch(root + '/nested-form-test', {
+				method: 'POST',
+				headers: { 'content-type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({
+					'address[line1]': '10 Downing Street',
+					'address[town]': 'London'
+				}),
+				redirect: 'manual'
+			})
+			expect(postResponse.status).toBe(302)
+
+			const cookie = postResponse.headers
+				.getSetCookie()
+				.map((setCookie) => setCookie.split(';')[0])
+				.join('; ')
+
+			const pageResponse = await fetch(root + '/nested-form-test', { headers: { cookie } })
+			expect(await pageResponse.text()).toBe('10 Downing Street|London')
+		})
+
 		it('serves templates, previews them and creates pages from them', async () => {
 			const packageName = '@govuk-prototype-kit/common-templates'
 			const templateQuery = new URLSearchParams({

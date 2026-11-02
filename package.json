@@ -29,7 +29,6 @@
 	"author": "Joe Lanman",
 	"license": "ISC",
 	"dependencies": {
-		"body-parser": "^2.4.0",
 		"chokidar": "^6.0.0",
 		"commander": "14.0.0",
 		"cookie-parser": "^1.4.7",
