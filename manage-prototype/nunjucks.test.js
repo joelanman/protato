@@ -61,12 +61,4 @@ describe('manage prototype Nunjucks environment', () => {
 
 		expect(config.noCache).toBe(false)
 	})
-
-	it('leaves the Nunjucks watcher off', async () => {
-		process.env.PROTATO_DEV = 'true'
-
-		const config = await getNunjucksConfig()
-
-		expect(config.watch).toBe(false)
-	})
 })

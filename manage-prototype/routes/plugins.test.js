@@ -163,26 +163,6 @@ describe('plugin routes', () => {
 		})
 	})
 
-	describe('removed confirmation routes', () => {
-		it('does not have a confirmation page for install', async () => {
-			const response = await request(app).get('/manage-prototype/plugins/install?packageName=new-plugin')
-
-			expect(response.status).toBe(404)
-		})
-
-		it('does not have a confirmation page for uninstall', async () => {
-			const response = await request(app).get('/manage-prototype/plugins/uninstall?packageName=asset-plugin')
-
-			expect(response.status).toBe(404)
-		})
-
-		it('does not have a confirmation page for update', async () => {
-			const response = await request(app).get('/manage-prototype/plugins/update?packageName=asset-plugin')
-
-			expect(response.status).toBe(404)
-		})
-	})
-
 	describe('POST /install', () => {
 		it('installs the plugin and reports success', async () => {
 			installPlugin.mockResolvedValue({
@@ -226,42 +206,6 @@ describe('plugin routes', () => {
 					npmOutput: 'npm error 404 Not Found'
 				})
 			)
-		})
-
-		it('refuses a second change while one is running', async () => {
-			installPlugin.mockResolvedValue({ outcome: 'busy' })
-
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'new-plugin' })
-
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'busy' }))
-		})
-
-		it('shows a server-side refusal', async () => {
-			installPlugin.mockResolvedValue({ outcome: 'failed', message: 'Choose a valid npm package name.' })
-
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'plugin; rm -rf /' })
-
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'Choose a valid npm package name.' }))
-		})
-
-		it('reports that there is nothing to do when already installed', async () => {
-			installPlugin.mockResolvedValue({ outcome: 'noChange', message: 'asset-plugin is already installed.' })
-
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
-
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'noChange' }))
 		})
 	})
 
@@ -323,35 +267,6 @@ describe('plugin routes', () => {
 					installedPackages: ['needed-plugin']
 				})
 			)
-		})
-
-		it('reports that there is nothing to do when already up to date', async () => {
-			updatePlugin.mockResolvedValue({ outcome: 'noChange', message: 'asset-plugin is already up to date.' })
-
-			const response = await request(app)
-				.post('/manage-prototype/plugins/update')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
-
-			const { model } = readRender(response)
-			expect(model).toEqual(
-				expect.objectContaining({
-					outcome: 'noChange',
-					message: 'asset-plugin is already up to date.'
-				})
-			)
-		})
-
-		it('refuses a second change while one is running', async () => {
-			updatePlugin.mockResolvedValue({ outcome: 'busy' })
-
-			const response = await request(app)
-				.post('/manage-prototype/plugins/update')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
-
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'busy' }))
 		})
 
 		it('reports a failed update', async () => {

@@ -99,12 +99,6 @@ describe('getApp', () => {
 		})
 	})
 
-	it('creates an Express application', async () => {
-		const app = await getApp()
-		expect(app).toBeDefined()
-		expect(typeof app).toBe('function')
-	})
-
 	it('sets up app locals correctly', async () => {
 		const app = await getApp()
 

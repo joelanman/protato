@@ -43,7 +43,7 @@ const logIn = async (root, password) => {
 describe('Server', () => {
 	let serverProcess = null
 	let testDir = null
-	const port = 3030
+	const port = 3033
 	const root = 'http://localhost:' + port
 
 	beforeAll(async () => {
