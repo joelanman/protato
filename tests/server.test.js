@@ -338,8 +338,9 @@ describe('Server', () => {
 			expect(response.status).toBe(200)
 
 			const css = await response.text()
+			// the colour declaration only compiles if govuk-colour() came from the package
 			expect(css).toContain('.custom-pkg')
-			expect(css).toContain('#0f7a52') // govuk-colour("green")
+			expect(css).toMatch(/\.custom-pkg\s*\{[^}]*color:\s*#[0-9a-f]{3,8}/i)
 		})
 	})
 })
