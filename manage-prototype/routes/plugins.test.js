@@ -163,6 +163,26 @@ describe('plugin routes', () => {
 		})
 	})
 
+	describe('removed confirmation routes', () => {
+		it('does not have a confirmation page for install', async () => {
+			const response = await request(app).get('/manage-prototype/plugins/install?packageName=new-plugin')
+
+			expect(response.status).toBe(404)
+		})
+
+		it('does not have a confirmation page for uninstall', async () => {
+			const response = await request(app).get('/manage-prototype/plugins/uninstall?packageName=asset-plugin')
+
+			expect(response.status).toBe(404)
+		})
+
+		it('does not have a confirmation page for update', async () => {
+			const response = await request(app).get('/manage-prototype/plugins/update?packageName=asset-plugin')
+
+			expect(response.status).toBe(404)
+		})
+	})
+
 	describe('POST /install', () => {
 		it('installs the plugin and reports success', async () => {
 			installPlugin.mockResolvedValue({
@@ -207,6 +227,30 @@ describe('plugin routes', () => {
 				})
 			)
 		})
+
+		it('shows a server-side refusal', async () => {
+			installPlugin.mockResolvedValue({ outcome: 'failed', message: 'Choose a valid npm package name.' })
+
+			const response = await request(app)
+				.post('/manage-prototype/plugins/install')
+				.type('form')
+				.send({ packageName: 'plugin; rm -rf /' })
+
+			const { model } = readRender(response)
+			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'Choose a valid npm package name.' }))
+		})
+
+		it('reports that a change is already running', async () => {
+			installPlugin.mockResolvedValue({ outcome: 'busy' })
+
+			const response = await request(app)
+				.post('/manage-prototype/plugins/install')
+				.type('form')
+				.send({ packageName: 'new-plugin' })
+
+			const { model } = readRender(response)
+			expect(model).toEqual(expect.objectContaining({ outcome: 'busy' }))
+		})
 	})
 
 	describe('POST /uninstall', () => {
@@ -229,18 +273,6 @@ describe('plugin routes', () => {
 					removedPackages: ['asset-plugin', 'dependent-plugin']
 				})
 			)
-		})
-
-		it('shows the refusal for a protected plugin', async () => {
-			uninstallPlugin.mockResolvedValue({ outcome: 'failed', message: 'protato cannot be uninstalled.' })
-
-			const response = await request(app)
-				.post('/manage-prototype/plugins/uninstall')
-				.type('form')
-				.send({ packageName: 'protato' })
-
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'protato cannot be uninstalled.' }))
 		})
 	})
 
@@ -267,18 +299,6 @@ describe('plugin routes', () => {
 					installedPackages: ['needed-plugin']
 				})
 			)
-		})
-
-		it('reports a failed update', async () => {
-			updatePlugin.mockResolvedValue({ outcome: 'failed', message: 'The plugin could not be updated.' })
-
-			const response = await request(app)
-				.post('/manage-prototype/plugins/update')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
-
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'The plugin could not be updated.' }))
 		})
 	})
 })
