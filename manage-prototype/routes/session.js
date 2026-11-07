@@ -48,3 +48,4 @@ router.post('/password', (request, response) => {
 })
 
 export default router
+export { getSafeReturnURL }
