@@ -1,9 +1,13 @@
-import express from 'express'
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { installPlugin, uninstallPlugin, updatePlugin } from '../../lib/manage-plugins/change.js'
 import * as registry from '../../lib/manage-plugins/registry.js'
+import { createManagePrototypeApp, readCsrf } from '../../tests/helpers/manage-prototype.js'
 import pluginRoutes from './plugins.js'
+
+vi.mock('../../lib/config.js', () => ({
+	getConfig: () => ({ env: 'development', serviceName: 'Test Service', isSecure: false })
+}))
 
 vi.mock('../../lib/manage-plugins/change.js', () => ({
 	installPlugin: vi.fn(),
@@ -16,36 +20,19 @@ vi.mock('../../lib/manage-plugins/registry.js', () => ({
 	fetchAllPluginData: vi.fn()
 }))
 
-const installedPlugins = [
-	{
-		packageName: 'asset-plugin',
-		name: 'Asset Plugin',
-		installed: true,
-		version: '1.0.0',
-		description: 'Adds assets',
-		protectedPackage: false
-	}
-]
+const installedPlugin = {
+	packageName: 'asset-plugin',
+	name: 'Asset Plugin',
+	installed: true,
+	version: '1.0.0',
+	description: 'Adds assets',
+	protectedPackage: false
+}
 
-const availablePlugins = [
-	{
-		packageName: 'new-plugin',
-		name: 'New Plugin',
-		installed: false
-	}
-]
-
-const readRender = (response) => {
-	const separator = response.text.indexOf(' ')
-
-	if (separator === -1) {
-		return { view: response.text, model: undefined }
-	}
-
-	return {
-		view: response.text.slice(0, separator),
-		model: JSON.parse(response.text.slice(separator + 1))
-	}
+const availablePlugin = {
+	packageName: 'new-plugin',
+	name: 'New Plugin',
+	installed: false
 }
 
 describe('plugin routes', () => {
@@ -54,43 +41,76 @@ describe('plugin routes', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 
-		registry.getPluginLists.mockReturnValue({ installedPlugins, availablePlugins })
-
-		app = express()
-		app.use(express.urlencoded({ extended: true }))
-		app.use((req, res, next) => {
-			res.render = (view, model) => res.send(`${view} ${JSON.stringify(model)}`)
-			next()
+		registry.getPluginLists.mockReturnValue({
+			installedPlugins: [installedPlugin],
+			availablePlugins: [availablePlugin]
 		})
-		app.use('/manage-prototype/plugins', pluginRoutes)
+		app = createManagePrototypeApp(pluginRoutes, { mountPath: '/manage-prototype/plugins' })
 	})
 
-	describe('GET /', () => {
-		it('renders the installed and available plugins', async () => {
+	const readPluginPageHtml = async (plugins) => {
+		registry.getPluginLists.mockReturnValue(plugins)
+
+		const response = await request(app).get('/manage-prototype/plugins')
+
+		return response.text
+	}
+
+	const postAction = async (action, body, { withToken = true } = {}) => {
+		const requestBuilder = request(app).post(`/manage-prototype/plugins/${action}`)
+
+		if (withToken) {
+			const formPage = await request(app).get('/manage-prototype/plugins')
+			const { token, cookie } = readCsrf(formPage)
+
+			return requestBuilder
+				.set('Cookie', cookie)
+				.type('form')
+				.send({ ...body, _csrf: token })
+		}
+
+		return requestBuilder.type('form').send(body)
+	}
+
+	describe('GET /plugins', () => {
+		it('lists the installed and available plugins with their actions', async () => {
 			const response = await request(app).get('/manage-prototype/plugins')
 
-			const { view, model } = readRender(response)
-			expect(view).toBe('plugins')
-			expect(registry.getPluginLists).toHaveBeenCalledOnce()
-			expect(model.pageName).toBe('Plugins')
-			expect(model.installedPlugins.map((plugin) => plugin.packageName)).toEqual(['asset-plugin'])
-			expect(model.availablePlugins.map((plugin) => plugin.packageName)).toEqual(['new-plugin'])
-			expect(model.availableUpdatesCount).toBe(0)
+			expect(response.status).toBe(200)
+			expect(response.text).toContain('<h1 class="govuk-heading-l">Plugins</h1>')
+			expect(response.text).toContain('Installed plugins')
+			expect(response.text).toContain('Available plugins')
+
+			expect(response.text).toContain('Asset Plugin')
+			expect(response.text).toContain('Version 1.0.0')
+			expect(response.text).toContain('Adds assets')
+			expect(response.text).toContain('New Plugin')
+
+			expect(response.text).toContain('<form method="post" action="/manage-prototype/plugins/uninstall">')
+			expect(response.text).toContain('<form method="post" action="/manage-prototype/plugins/install">')
+			expect(response.text).toContain('name="packageName" value="asset-plugin"')
+			expect(response.text).toMatch(/name="_csrf" value="[^"]+"/)
 		})
 
-		it('counts the plugins that have updates available', async () => {
-			registry.getPluginLists.mockReturnValue({
-				installedPlugins: [
-					{ ...installedPlugins[0], updateAvailable: true, latestVersion: '2.0.0' },
-					{ ...installedPlugins[0], packageName: 'other-plugin', updateAvailable: false }
-				],
+		it('says when there are no plugins to list', async () => {
+			const html = await readPluginPageHtml({ installedPlugins: [], availablePlugins: [] })
+
+			expect(html).toContain('No plugins are installed.')
+			expect(html).toContain('There are no other plugins available.')
+		})
+
+		it('shows how many plugins have updates available', async () => {
+			const updateAvailable = { ...installedPlugin, updateAvailable: true, latestVersion: '2.0.0' }
+
+			const oneUpdate = await readPluginPageHtml({ installedPlugins: [updateAvailable], availablePlugins: [] })
+			expect(oneUpdate).toContain('1 update available')
+			expect(oneUpdate).toContain('(version 2.0.0 available)')
+
+			const twoUpdates = await readPluginPageHtml({
+				installedPlugins: [updateAvailable, { ...updateAvailable, packageName: 'other-plugin' }],
 				availablePlugins: []
 			})
-
-			const response = await request(app).get('/manage-prototype/plugins')
-
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ availableUpdatesCount: 1 }))
+			expect(twoUpdates).toContain('2 updates available')
 		})
 
 		it('does not check for updates on a page load', async () => {
@@ -101,61 +121,59 @@ describe('plugin routes', () => {
 	})
 
 	describe('plugin actions', () => {
-		const readInstalledActions = async (plugin) => {
-			registry.getPluginLists.mockReturnValue({ installedPlugins: [plugin], availablePlugins: [] })
-
-			const response = await request(app).get('/manage-prototype/plugins')
-
-			return readRender(response).model.installedPlugins[0].actions
-		}
-
 		it('offers install for a plugin that is not installed', async () => {
-			const actions = await readInstalledActions({ packageName: 'gone-plugin', installed: false })
+			const html = await readPluginPageHtml({ installedPlugins: [], availablePlugins: [availablePlugin] })
 
-			expect(actions).toEqual(['install'])
+			expect(html).toContain('action="/manage-prototype/plugins/install"')
+			expect(html).toContain('Install')
+			expect(html).not.toContain('action="/manage-prototype/plugins/uninstall"')
 		})
 
 		it('offers uninstall for an installed plugin with no update', async () => {
-			const actions = await readInstalledActions({ packageName: 'asset-plugin', installed: true })
+			const html = await readPluginPageHtml({ installedPlugins: [installedPlugin], availablePlugins: [] })
 
-			expect(actions).toEqual(['uninstall'])
+			expect(html).toContain('action="/manage-prototype/plugins/uninstall"')
+			expect(html).not.toContain('action="/manage-prototype/plugins/update"')
 		})
 
 		it('offers update and uninstall when an update is available', async () => {
-			const actions = await readInstalledActions({
-				packageName: 'asset-plugin',
-				installed: true,
-				updateAvailable: true
+			const html = await readPluginPageHtml({
+				installedPlugins: [{ ...installedPlugin, updateAvailable: true }],
+				availablePlugins: []
 			})
 
-			expect(actions).toEqual(['update', 'uninstall'])
+			expect(html).toContain('action="/manage-prototype/plugins/update"')
+			expect(html).toContain('action="/manage-prototype/plugins/uninstall"')
 		})
 
 		it('offers only update for a protected plugin', async () => {
-			const actions = await readInstalledActions({
-				packageName: 'govuk-frontend',
-				installed: true,
-				protectedPackage: true,
-				updateAvailable: true
+			const html = await readPluginPageHtml({
+				installedPlugins: [
+					{ ...installedPlugin, packageName: 'govuk-frontend', protectedPackage: true, updateAvailable: true }
+				],
+				availablePlugins: []
 			})
 
-			expect(actions).toEqual(['update'])
+			expect(html).toContain('action="/manage-prototype/plugins/update"')
+			expect(html).not.toContain('action="/manage-prototype/plugins/uninstall"')
 		})
 
 		it('offers nothing for a protected plugin with no update', async () => {
-			const actions = await readInstalledActions({
-				packageName: 'protato',
-				installed: true,
-				protectedPackage: true
+			const html = await readPluginPageHtml({
+				installedPlugins: [{ ...installedPlugin, packageName: 'protato', protectedPackage: true }],
+				availablePlugins: []
 			})
 
-			expect(actions).toEqual([])
+			expect(html).toContain('Cannot be uninstalled')
+			expect(html).not.toContain('action="/manage-prototype/plugins/install"')
+			expect(html).not.toContain('action="/manage-prototype/plugins/uninstall"')
+			expect(html).not.toContain('action="/manage-prototype/plugins/update"')
 		})
 	})
 
 	describe('POST /check-for-updates', () => {
 		it('checks again, then returns to the plugins page', async () => {
-			const response = await request(app).post('/manage-prototype/plugins/check-for-updates')
+			const response = await postAction('check-for-updates', {})
 
 			expect(registry.fetchAllPluginData).toHaveBeenCalledOnce()
 			expect(response.status).toBe(302)
@@ -163,142 +181,90 @@ describe('plugin routes', () => {
 		})
 	})
 
-	describe('removed confirmation routes', () => {
-		it('does not have a confirmation page for install', async () => {
-			const response = await request(app).get('/manage-prototype/plugins/install?packageName=new-plugin')
+	describe('POST outcomes', () => {
+		it('rejects a form without a csrf token', async () => {
+			const response = await postAction('install', { packageName: 'new-plugin' }, { withToken: false })
 
-			expect(response.status).toBe(404)
+			expect(response.status).toBe(403)
+			expect(response.text).toContain('Your form has expired')
+			expect(installPlugin).not.toHaveBeenCalled()
 		})
 
-		it('does not have a confirmation page for uninstall', async () => {
-			const response = await request(app).get('/manage-prototype/plugins/uninstall?packageName=asset-plugin')
+		it('shows the installed packages after an install', async () => {
+			installPlugin.mockResolvedValue({ outcome: 'installed', installedPackages: ['new-plugin', 'needed-plugin'] })
 
-			expect(response.status).toBe(404)
-		})
-
-		it('does not have a confirmation page for update', async () => {
-			const response = await request(app).get('/manage-prototype/plugins/update?packageName=asset-plugin')
-
-			expect(response.status).toBe(404)
-		})
-	})
-
-	describe('POST /install', () => {
-		it('installs the plugin and reports success', async () => {
-			installPlugin.mockResolvedValue({
-				outcome: 'installed',
-				installedPackages: ['new-plugin', 'needed-plugin']
-			})
-
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'new-plugin' })
+			const response = await postAction('install', { packageName: 'new-plugin' })
 
 			expect(installPlugin).toHaveBeenCalledWith('new-plugin')
-			const { view, model } = readRender(response)
-			expect(view).toBe('plugin-result')
-			expect(model).toEqual(
-				expect.objectContaining({
-					outcome: 'installed',
-					installedPackages: ['new-plugin', 'needed-plugin']
-				})
-			)
+			expect(response.status).toBe(200)
+			expect(response.text).toContain('Plugin installed')
+			expect(response.text).toContain('The prototype has restarted with the new plugins.')
+			expect(response.text).toContain('Installed')
+			expect(response.text).toContain('new-plugin')
+			expect(response.text).toContain('needed-plugin')
+			expect(response.text).toContain('href="/manage-prototype/plugins"')
 		})
 
-		it('reports npm failure', async () => {
+		it('shows the npm output when npm fails', async () => {
 			installPlugin.mockResolvedValue({
 				outcome: 'failed',
 				message: 'The plugin could not be installed.',
 				npmOutput: 'npm error 404 Not Found'
 			})
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'missing-plugin' })
+			const response = await postAction('install', { packageName: 'missing-plugin' })
 
-			const { model } = readRender(response)
-			expect(model).toEqual(
-				expect.objectContaining({
-					outcome: 'failed',
-					message: 'The plugin could not be installed.',
-					npmOutput: 'npm error 404 Not Found'
-				})
-			)
+			expect(response.text).toContain('The plugin could not be changed')
+			expect(response.text).toContain('The plugin could not be installed.')
+			expect(response.text).toContain('npm output')
+			expect(response.text).toContain('npm error 404 Not Found')
 		})
 
-		it('shows a server-side refusal', async () => {
-			installPlugin.mockResolvedValue({ outcome: 'failed', message: 'Choose a valid npm package name.' })
+		it('shows a message when there is nothing to change', async () => {
+			installPlugin.mockResolvedValue({ outcome: 'noChange', message: 'asset-plugin is already installed.' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'plugin; rm -rf /' })
+			const response = await postAction('install', { packageName: 'asset-plugin' })
 
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'failed', message: 'Choose a valid npm package name.' }))
+			expect(response.text).toContain('No changes needed')
+			expect(response.text).toContain('asset-plugin is already installed.')
 		})
 
-		it('reports that a change is already running', async () => {
+		it('shows a message when a change is already running', async () => {
 			installPlugin.mockResolvedValue({ outcome: 'busy' })
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/install')
-				.type('form')
-				.send({ packageName: 'new-plugin' })
+			const response = await postAction('install', { packageName: 'new-plugin' })
 
-			const { model } = readRender(response)
-			expect(model).toEqual(expect.objectContaining({ outcome: 'busy' }))
+			expect(response.text).toContain('Another plugin change is already running. Try again when it has finished.')
 		})
-	})
 
-	describe('POST /uninstall', () => {
-		it('uninstalls the plugins and reports success', async () => {
+		it('shows the removed packages after an uninstall', async () => {
 			uninstallPlugin.mockResolvedValue({
 				outcome: 'uninstalled',
 				removedPackages: ['asset-plugin', 'dependent-plugin']
 			})
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/uninstall')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
+			const response = await postAction('uninstall', { packageName: 'asset-plugin' })
 
 			expect(uninstallPlugin).toHaveBeenCalledWith('asset-plugin')
-			const { model } = readRender(response)
-			expect(model).toEqual(
-				expect.objectContaining({
-					outcome: 'uninstalled',
-					removedPackages: ['asset-plugin', 'dependent-plugin']
-				})
-			)
+			expect(response.text).toContain('Plugins uninstalled')
+			expect(response.text).toContain('Uninstalled')
+			expect(response.text).toContain('dependent-plugin')
 		})
-	})
 
-	describe('POST /update', () => {
-		it('updates the plugin and reports success', async () => {
+		it('shows the updated package after an update', async () => {
 			updatePlugin.mockResolvedValue({
 				outcome: 'updated',
 				packageName: 'asset-plugin',
 				installedPackages: ['needed-plugin']
 			})
 
-			const response = await request(app)
-				.post('/manage-prototype/plugins/update')
-				.type('form')
-				.send({ packageName: 'asset-plugin' })
+			const response = await postAction('update', { packageName: 'asset-plugin' })
 
 			expect(updatePlugin).toHaveBeenCalledWith('asset-plugin')
-			const { view, model } = readRender(response)
-			expect(view).toBe('plugin-result')
-			expect(model).toEqual(
-				expect.objectContaining({
-					outcome: 'updated',
-					updatedPackage: 'asset-plugin',
-					installedPackages: ['needed-plugin']
-				})
-			)
+			expect(response.text).toContain('Plugin updated')
+			expect(response.text).toContain('The prototype has restarted with the updated plugin.')
+			expect(response.text).toContain('Updated')
+			expect(response.text).toContain('asset-plugin')
 		})
 	})
 })

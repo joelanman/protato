@@ -1,44 +1,28 @@
-import express from 'express'
 import request from 'supertest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createManagePrototypeApp, readCsrf } from '../../tests/helpers/manage-prototype.js'
 import sessionRoutes, { getSafeReturnURL } from './session.js'
 
 vi.mock('../../lib/config.js', () => ({
-	getConfig: vi.fn(() => ({ passwords: ['secret'] }))
+	getConfig: () => ({
+		env: 'development',
+		serviceName: 'Test Service',
+		isSecure: false,
+		passwords: ['secret']
+	})
 }))
-
-const renderToString = (view, model) => (model === undefined ? view : `${view} ${JSON.stringify(model)}`)
-
-const readRender = (response) => {
-	const separator = response.text.indexOf(' ')
-
-	if (separator === -1) {
-		return { view: response.text, model: undefined }
-	}
-
-	return {
-		view: response.text.slice(0, separator),
-		model: JSON.parse(response.text.slice(separator + 1))
-	}
-}
 
 describe('manage prototype session routes', () => {
 	let app
 	let session
 
-	const createApp = () => {
-		const testApp = express()
-
-		testApp.use(express.urlencoded({ extended: true }))
-		testApp.use((req, res, next) => {
-			req.session = session
-			res.render = (view, model) => res.send(renderToString(view, model))
-			next()
+	const createApp = () =>
+		createManagePrototypeApp(sessionRoutes, {
+			middleware: (request, response, next) => {
+				request.session = session
+				next()
+			}
 		})
-		testApp.use('/manage-prototype', sessionRoutes)
-
-		return testApp
-	}
 
 	beforeEach(() => {
 		vi.clearAllMocks()
@@ -67,20 +51,31 @@ describe('manage prototype session routes', () => {
 	})
 
 	describe('GET /password', () => {
-		it('renders the password page with the error and return URL', async () => {
+		it('renders the password form with the return URL and a csrf token', async () => {
 			const response = await request(app).get(
 				'/manage-prototype/password?error=wrong-password&returnURL=%2Fpage%3Fa%3D1'
 			)
 
-			const { view, model } = readRender(response)
-			expect(view).toBe('password')
-			expect(model).toEqual({ error: 'wrong-password', returnURL: '/page?a=1' })
+			expect(response.status).toBe(200)
+			expect(response.text).toContain('This is a prototype used for research')
+			expect(response.text).toContain('The password is not correct')
+			expect(response.text).toContain('<form method="post" action="/manage-prototype/password">')
+			expect(response.text).toContain('name="returnURL" value="/page?a=1"')
+			expect(response.text).toMatch(/name="_csrf" value="[^"]+"/)
 		})
 	})
 
 	describe('POST /password', () => {
-		const postPassword = (password, returnURL) =>
-			request(app).post('/manage-prototype/password').type('form').send({ password, returnURL })
+		const postPassword = async (password, returnURL) => {
+			const formPage = await request(app).get('/manage-prototype/password')
+			const { token, cookie } = readCsrf(formPage)
+
+			return request(app)
+				.post('/manage-prototype/password')
+				.set('Cookie', cookie)
+				.type('form')
+				.send({ password, returnURL, _csrf: token })
+		}
 
 		it('stores the password and returns to the safe return URL', async () => {
 			const response = await postPassword('secret', '/page?a=1')
@@ -109,18 +104,29 @@ describe('manage prototype session routes', () => {
 	})
 
 	describe('clear data', () => {
-		it('renders the clear data confirmation page', async () => {
+		it('asks for confirmation before clearing the data', async () => {
 			const response = await request(app).get('/manage-prototype/clear-data')
 
 			expect(response.status).toBe(200)
-			expect(readRender(response).view).toBe('clear-data')
+			expect(response.text).toContain('Clear session data')
+			expect(response.text).toContain('This will clear all of the data entered in this session')
+			expect(response.text).toMatch(/<form method="post">/)
+			expect(response.text).toMatch(/name="_csrf" value="[^"]+"/)
 		})
 
 		it('clears the stored session data after a POST', async () => {
-			const response = await request(app).post('/manage-prototype/clear-data').type('form')
+			const formPage = await request(app).get('/manage-prototype/clear-data')
+			const { token, cookie } = readCsrf(formPage)
 
+			const response = await request(app)
+				.post('/manage-prototype/clear-data')
+				.set('Cookie', cookie)
+				.type('form')
+				.send({ _csrf: token })
+
+			expect(response.status).toBe(200)
+			expect(response.text).toContain('Data cleared')
 			expect(session.data).toEqual({})
-			expect(readRender(response).view).toBe('clear-data-success')
 		})
 	})
 })
