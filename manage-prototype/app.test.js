@@ -100,16 +100,25 @@ vi.mock('nunjucks', () => ({
 // the same way, so tests can read back the view and model that were rendered
 const renderToString = (view, model) => (model === undefined ? view : `${view} ${JSON.stringify(model)}`)
 
+// The real views put the token in a hidden field in each form, so the test
+// render does the same. That keeps tests reading the token the browser sends,
+// rather than the value of the cookie csrf-csrf sets.
+const renderWithCsrfToken = (response, view, model) =>
+	`${renderToString(view, model)}\n<input type="hidden" name="_csrf" value="${response.locals.csrfToken ?? ''}">`
+
+const tokenFrom = (response) => /name="_csrf" value="([^"]*)"/.exec(response.text)?.[1]
+
 const readRender = (response) => {
-	const separator = response.text.indexOf(' ')
+	const [line] = response.text.split('\n')
+	const separator = line.indexOf(' ')
 
 	if (separator === -1) {
-		return { view: response.text, model: undefined }
+		return { view: line, model: undefined }
 	}
 
 	return {
-		view: response.text.slice(0, separator),
-		model: JSON.parse(response.text.slice(separator + 1))
+		view: line.slice(0, separator),
+		model: JSON.parse(line.slice(separator + 1))
 	}
 }
 
@@ -127,7 +136,7 @@ describe('manage prototype app', () => {
 		// the parent app parses the body before manage prototype is mounted
 		testApp.use(express.urlencoded({ extended: true }))
 		testApp.use((req, res, next) => {
-			res.render = (view, model) => res.send(renderToString(view, model))
+			res.render = (view, model) => res.send(renderWithCsrfToken(res, view, model))
 			next()
 		})
 
@@ -217,11 +226,9 @@ describe('manage prototype app', () => {
 			vi.spyOn(fs, 'mkdirSync').mockReturnValue(undefined)
 			vi.spyOn(fs, 'copyFileSync').mockReturnValue(undefined)
 
-			// the token is in the cookie as well as the form, so read it from
-			// the cookie the form page would set
 			const formPage = await request(app).get(createUrl)
 			cookie = formPage.headers['set-cookie'][0].split(';')[0]
-			token = cookie.split('=')[1]
+			token = tokenFrom(formPage)
 		})
 
 		afterEach(() => {
@@ -394,7 +401,7 @@ describe('manage prototype app', () => {
 
 			const pluginsPage = await request(app).get('/manage-prototype/plugins')
 			cookie = pluginsPage.headers['set-cookie'][0].split(';')[0]
-			token = cookie.split('=')[1]
+			token = tokenFrom(pluginsPage)
 		})
 
 		const postPlugin = (action, requestBody) =>
